@@ -1,0 +1,331 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Classic Mac OS Platinum palette */
+  --plat-white: #ffffff;
+  --plat-50: #f5f5f5;
+  --plat-100: #e8e8e8;
+  --plat-200: #dddddd;
+  --plat-300: #cccccc;
+  --plat-400: #aaaaaa;
+  --plat-500: #888888;
+  --plat-600: #666666;
+  --plat-700: #4a4a4a;
+  --plat-900: #000000;
+  --plat-shadow: rgba(0, 0, 0, 0.55);
+  --plat-select: #000080;        /* System 7 selection blue */
+  --plat-select-fg: #ffffff;
+
+  --font-chicago: 'Pixelify Sans', 'ChicagoFLF', 'Chicago', system-ui, sans-serif;
+  --font-geneva: 'Pixelify Sans', 'Geneva', 'Lucida Grande', system-ui, sans-serif;
+  --font-monaco: 'VT323', 'Monaco', 'Courier New', monospace;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-chicago);
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  color: var(--plat-900);
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  font-smooth: never;
+  cursor: default;
+  image-rendering: pixelated;
+}
+
+/* Scrollbars — chunky platinum style */
+::-webkit-scrollbar {
+  width: 15px;
+  height: 15px;
+}
+::-webkit-scrollbar-track {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      var(--plat-200) 0 1px,
+      var(--plat-100) 1px 2px
+    );
+  border-left: 1px solid var(--plat-400);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--plat-300);
+  border: 1px solid var(--plat-700);
+  box-shadow:
+    inset 1px 1px 0 var(--plat-white),
+    inset -1px -1px 0 var(--plat-500);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--plat-200);
+}
+::-webkit-scrollbar-corner {
+  background: var(--plat-200);
+}
+
+/* ────────── Desktop pattern ─────────────────────────────────
+   Classic 50% gray dithered Bayer pattern. Each "pixel" is a
+   2×2 cell with two opposing fills — gives that signature
+   stippled platinum desktop. */
+.desktop-pattern {
+  background-color: #aaaaaa;
+  background-image:
+    linear-gradient(45deg, #888 25%, transparent 25%),
+    linear-gradient(-45deg, #888 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #888 75%),
+    linear-gradient(-45deg, transparent 75%, #888 75%);
+  background-size: 4px 4px;
+  background-position: 0 0, 0 2px, 2px -2px, -2px 0;
+}
+
+/* ────────── Platinum chrome ─────────────────────────────────
+   3D beveled border: light-top/left, dark-bottom/right.
+   The `outset` variant is the "raised" look used on buttons
+   and title bars; `inset` is the "pressed" look. */
+.chrome-outset {
+  border: 1px solid var(--plat-900);
+  box-shadow:
+    inset 1px 1px 0 var(--plat-white),
+    inset -1px -1px 0 var(--plat-500);
+}
+.chrome-inset {
+  border: 1px solid var(--plat-900);
+  box-shadow:
+    inset 1px 1px 0 var(--plat-500),
+    inset -1px -1px 0 var(--plat-white);
+}
+
+/* Pinstripe title bar — six horizontal black lines on light gray,
+   with empty center band for the title text. */
+.title-pinstripe {
+  background-image:
+    linear-gradient(
+      to bottom,
+      var(--plat-900) 0,
+      var(--plat-900) 1px,
+      transparent 1px,
+      transparent 3px,
+      var(--plat-900) 3px,
+      var(--plat-900) 4px,
+      transparent 4px,
+      transparent 6px,
+      var(--plat-900) 6px,
+      var(--plat-900) 7px,
+      transparent 7px,
+      transparent 9px,
+      var(--plat-900) 9px,
+      var(--plat-900) 10px,
+      transparent 10px,
+      transparent 12px,
+      var(--plat-900) 12px,
+      var(--plat-900) 13px,
+      transparent 13px,
+      transparent 15px,
+      var(--plat-900) 15px,
+      var(--plat-900) 16px,
+      transparent 16px
+    );
+  background-color: var(--plat-100);
+}
+
+/* Inactive window: no pinstripes, just flat light gray title bar */
+.title-inactive {
+  background: var(--plat-100);
+}
+
+/* ────────── Pixel button (close / zoom / collapse box) ────── */
+.pixel-box {
+  width: 11px;
+  height: 11px;
+  background: var(--plat-200);
+  border: 1px solid var(--plat-900);
+  box-shadow:
+    inset 1px 1px 0 var(--plat-white),
+    inset -1px -1px 0 var(--plat-500);
+  cursor: pointer;
+  display: inline-block;
+  position: relative;
+  flex-shrink: 0;
+}
+.pixel-box:active {
+  box-shadow:
+    inset 1px 1px 0 var(--plat-500),
+    inset -1px -1px 0 var(--plat-white);
+}
+
+/* Inactive window controls — visible but flat / unraised. Glyphs do not reveal on hover. */
+.pixel-box.is-dim {
+  background: var(--plat-100);
+  border-color: var(--plat-500);
+  box-shadow: none;
+  cursor: default;
+}
+.pixel-box.is-dim:active {
+  box-shadow: none;
+}
+.group\/window:hover .pixel-box.is-dim::after {
+  content: none;
+  display: none;
+}
+
+/* Reveal close glyph when hovering anywhere on the window */
+.group\/window:hover .pixel-box::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background:
+    linear-gradient(45deg, transparent 40%, var(--plat-900) 40%, var(--plat-900) 60%, transparent 60%),
+    linear-gradient(-45deg, transparent 40%, var(--plat-900) 40%, var(--plat-900) 60%, transparent 60%);
+}
+.group\/window:hover .pixel-box.is-zoom::after {
+  background:
+    linear-gradient(to right, var(--plat-900) 0, var(--plat-900) 100%) top left/100% 2px no-repeat,
+    linear-gradient(to right, var(--plat-900) 0, var(--plat-900) 100%) bottom left/100% 2px no-repeat,
+    linear-gradient(to bottom, var(--plat-900) 0, var(--plat-900) 100%) top left/2px 100% no-repeat,
+    linear-gradient(to bottom, var(--plat-900) 0, var(--plat-900) 100%) top right/2px 100% no-repeat;
+}
+.group\/window:hover .pixel-box.is-collapse::after {
+  content: '';
+  position: absolute;
+  inset: 4px 1px;
+  background: var(--plat-900);
+  height: 2px;
+}
+
+/* Hard pixel drop shadow — no soft blur, just an offset block.
+   This is THE classic Mac OS window shadow. */
+.window-shadow {
+  box-shadow:
+    2px 2px 0 var(--plat-shadow),
+    1px 1px 0 var(--plat-shadow);
+}
+
+/* ────────── Dock ──────────────────────────────────────────── */
+.dock-bar {
+  background: var(--plat-200);
+  border: 1px solid var(--plat-900);
+  box-shadow:
+    inset 1px 1px 0 var(--plat-white),
+    inset -1px -1px 0 var(--plat-500),
+    2px 2px 0 var(--plat-shadow);
+}
+.dock-icon-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 80ms ease-out;
+  position: relative;
+}
+.dock-icon-btn:hover {
+  background: var(--plat-100);
+  border: 1px solid var(--plat-900);
+  box-shadow:
+    inset 1px 1px 0 var(--plat-white),
+    inset -1px -1px 0 var(--plat-500);
+}
+.dock-icon-btn:active {
+  background: var(--plat-300);
+  box-shadow:
+    inset 1px 1px 0 var(--plat-500),
+    inset -1px -1px 0 var(--plat-white);
+}
+.dock-icon-btn:focus-visible {
+  outline: 2px dotted var(--plat-900);
+  outline-offset: -4px;
+}
+
+/* Tooltip */
+.dock-tooltip {
+  position: absolute;
+  bottom: 100%;
+  margin-bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 6px;
+  background: var(--plat-50);
+  border: 1px solid var(--plat-900);
+  color: var(--plat-900);
+  font-family: var(--font-chicago);
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 80ms ease-out;
+  box-shadow: 1px 1px 0 var(--plat-shadow);
+}
+.dock-icon-btn:hover .dock-tooltip,
+.dock-icon-btn:focus-visible .dock-tooltip {
+  opacity: 1;
+}
+
+/* ────────── Menu bar item hover ───────────────────────────── */
+.menu-item {
+  padding: 1px 8px;
+  font-family: var(--font-chicago);
+  font-size: 13px;
+  color: var(--plat-900);
+  cursor: default;
+  user-select: none;
+}
+.menu-item:hover,
+.menu-item:focus-visible,
+.menu-item.is-open {
+  background: var(--plat-900);
+  color: var(--plat-white);
+  outline: none;
+}
+.menu-item.is-open svg {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+.menu-dropdown-item:not(:disabled):hover {
+  background: var(--plat-select);
+  color: var(--plat-select-fg) !important;
+}
+.menu-dropdown-item:not(:disabled):hover span {
+  color: var(--plat-select-fg) !important;
+}
+
+/* Finder row hover (CSS so it works regardless of theme) */
+.finder-row:hover {
+  background: var(--plat-select) !important;
+  color: var(--plat-select-fg) !important;
+}
+.finder-row:hover span {
+  color: var(--plat-select-fg) !important;
+}
+
+/* ────────── Reduced motion ────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0ms !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ────────── Misc ──────────────────────────────────────────── */
+.no-select { user-select: none; -webkit-user-select: none; }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
