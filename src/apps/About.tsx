@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useWindowStore } from '../store/windowStore';
 import { APPS_BY_ID } from './registry';
 
-// Faux RAM allocations per app — small numbers, very Mac OS 8.
+// Faux RAM allocations per app — Mac OS 8 sizes (small numbers).
 const APP_RAM_MB: Record<string, number> = {
   finder: 3.0,
   terminal: 6.4,
@@ -10,19 +10,17 @@ const APP_RAM_MB: Record<string, number> = {
   controls: 2.8,
   launcher: 1.6,
   'text-edit': 5.0,
-  about: 2.4,
+  about: 1.5,
 };
 const DEFAULT_APP_RAM = 3.2;
-const SYSTEM_RAM_MB = 8.4;
-const TOTAL_RAM_MB = 128;
-
-// Cycle through System-7 era pastels for the per-app bars.
-const BAR_COLORS = ['#e89c2d', '#7fb3d5', '#c8a2c8', '#9eb87a', '#d77a61', '#a17ab8'];
+const SYSTEM_RAM_MB = 8.5;
+const TOTAL_RAM_MB = 32;
 
 export default function About() {
   const windows = useWindowStore(s => s.windows);
-  const [uptime, setUptime] = useState(() => Math.floor((Date.now() - bootTime) / 1000));
+  const openWindow = useWindowStore(s => s.openWindow);
 
+  const [uptime, setUptime] = useState(() => Math.floor((Date.now() - bootTime) / 1000));
   useEffect(() => {
     const id = window.setInterval(
       () => setUptime(Math.floor((Date.now() - bootTime) / 1000)),
@@ -31,11 +29,10 @@ export default function About() {
     return () => window.clearInterval(id);
   }, []);
 
-  // One row per unique open app, plus a "System Software" row.
+  // Unique open-app rows for the bar chart.
   const rows = useMemo(() => {
     const seen = new Set<string>();
-    const apps: { id: string; name: string; ram: number; color: string }[] = [];
-    let colorIdx = 0;
+    const apps: { id: string; name: string; ram: number }[] = [];
     for (const w of windows) {
       if (seen.has(w.appId)) continue;
       seen.add(w.appId);
@@ -44,13 +41,12 @@ export default function About() {
         id: w.appId,
         name: app?.name ?? w.appId,
         ram: APP_RAM_MB[w.appId] ?? DEFAULT_APP_RAM,
-        color: BAR_COLORS[colorIdx++ % BAR_COLORS.length],
       });
     }
     return apps;
   }, [windows]);
 
-  const inUse = rows.reduce((acc, r) => acc + r.ram, 0) + SYSTEM_RAM_MB;
+  const inUse = rows.reduce((acc, r) => acc + r.ram, SYSTEM_RAM_MB);
   const largestUnused = Math.max(0, TOTAL_RAM_MB - inUse);
 
   return (
@@ -61,108 +57,148 @@ export default function About() {
         fontFamily: 'var(--font-chicago)',
         fontSize: 12,
         color: 'var(--plat-900)',
-        padding: 14,
+        padding: '14px 16px',
       }}
     >
-      {/* Header — large Mac OS title with the rainbow apple */}
-      <div className="flex items-end gap-3" style={{ marginBottom: 14 }}>
-        <RainbowApple size={48} />
-        <div>
+      {/* Top: two columns — logo on the left, facts on the right */}
+      <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start' }}>
+        {/* Left column */}
+        <div style={{ width: 92, flexShrink: 0, textAlign: 'center', paddingTop: 4 }}>
+          <RainbowApple size={48} />
           <div
             style={{
               fontFamily: 'var(--font-chicago)',
-              fontSize: 28,
-              fontWeight: 400,
-              letterSpacing: '0.02em',
+              fontSize: 16,
+              marginTop: 6,
               lineHeight: 1,
-              color: 'var(--plat-900)',
+              letterSpacing: '0.02em',
             }}
           >
-            Mac&nbsp;OS&nbsp;8
+            Macintosh
           </div>
-          <div style={{ fontSize: 11, color: 'var(--plat-700)', marginTop: 2 }}>
-            akhilesh build · v1.0
+          <div
+            style={{
+              fontFamily: 'var(--font-chicago)',
+              fontSize: 12,
+              marginTop: 2,
+              color: 'var(--plat-700)',
+            }}
+          >
+            8.1
           </div>
+        </div>
+
+        {/* Right column */}
+        <div style={{ flex: 1, minWidth: 0, fontSize: 11.5, lineHeight: 1.55 }}>
+          <Fact k="Built-in Memory" v={`${TOTAL_RAM_MB} MB`} />
+          <Fact k="Virtual Memory" v="Off" />
+          <Fact k="Largest Unused Block" v={`${largestUnused.toFixed(1)} MB`} />
+
+          <div style={{ height: 8 }} />
+
+          <div style={{ fontSize: 11, color: 'var(--plat-700)' }}>
+            © Akhilesh Waghmare. 2024–2026
+          </div>
+          <button
+            onClick={() => window.open('https://github.com/akhilesh-w/os.akhileshw.xyz', '_blank', 'noopener,noreferrer')}
+            style={linkStyle}
+          >
+            View Source
+          </button>
+          <button
+            onClick={() => openWindow('text-edit', { windowKey: 'colophon', slug: 'colophon' })}
+            style={linkStyle}
+          >
+            Read Colophon
+          </button>
         </div>
       </div>
 
-      {/* Memory facts */}
+      {/* Memory bars */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'max-content 1fr',
-          rowGap: 3,
-          columnGap: 10,
-          fontSize: 12,
-          marginBottom: 14,
-          paddingBottom: 12,
-          borderBottom: '1px dotted var(--plat-400)',
+          marginTop: 14,
+          paddingTop: 10,
+          borderTop: '1px solid var(--plat-300)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
         }}
       >
-        <Row k="Built-in Memory" v={`${TOTAL_RAM_MB} MB`} />
-        <Row k="Virtual Memory" v={`${TOTAL_RAM_MB + 32} MB · on Macintosh HD`} />
-        <Row k="Largest Unused Block" v={`${largestUnused.toFixed(1)} MB`} />
-        <Row k="Uptime" v={fmtUptime(uptime)} />
-      </div>
-
-      {/* Per-app memory bar chart — the canonical About This Macintosh widget */}
-      <div style={{ fontSize: 11, color: 'var(--plat-700)', marginBottom: 6, letterSpacing: '0.04em' }}>
-        MEMORY USAGE
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <MemRow name="Mac OS" ram={SYSTEM_RAM_MB} color="#bcbcbc" total={TOTAL_RAM_MB} />
+        <MemRow name="System" ram={SYSTEM_RAM_MB} total={TOTAL_RAM_MB} />
         {rows.map(r => (
-          <MemRow key={r.id} name={r.name} ram={r.ram} color={r.color} total={TOTAL_RAM_MB} />
+          <MemRow key={r.id} name={r.name} ram={r.ram} total={TOTAL_RAM_MB} />
         ))}
-        {rows.length === 0 && (
-          <div style={{ fontSize: 11, color: 'var(--plat-500)', paddingLeft: 8 }}>
-            (No applications open)
-          </div>
-        )}
       </div>
 
       <div
         style={{
           fontSize: 10,
           color: 'var(--plat-500)',
-          textAlign: 'center',
-          marginTop: 16,
-          paddingTop: 10,
-          borderTop: '1px dotted var(--plat-400)',
-          lineHeight: 1.5,
+          textAlign: 'right',
+          marginTop: 10,
         }}
       >
-        Built by Akhilesh Waghmare in TypeScript, React 19, and Vite.
-        <br />
-        ™ &amp; © Apple Computer, Inc. 1983–1998. All rights reserved.
+        Uptime {fmtUptime(uptime)}
       </div>
     </div>
   );
 }
 
-function Row({ k, v }: { k: string; v: string }) {
+const linkStyle: React.CSSProperties = {
+  display: 'block',
+  background: 'transparent',
+  border: 'none',
+  padding: 0,
+  margin: '2px 0 0',
+  fontFamily: 'var(--font-chicago)',
+  fontSize: 12,
+  color: 'var(--plat-select)',
+  textDecoration: 'underline',
+  cursor: 'pointer',
+  textAlign: 'left',
+};
+
+function Fact({ k, v }: { k: string; v: string }) {
   return (
-    <>
+    <div style={{ display: 'flex', gap: 6 }}>
       <span style={{ color: 'var(--plat-700)' }}>{k}:</span>
-      <span style={{ fontFamily: 'var(--font-chicago)' }}>{v}</span>
-    </>
+      <span>{v}</span>
+    </div>
   );
 }
 
-function MemRow({ name, ram, color, total }: { name: string; ram: number; color: string; total: number }) {
+function MemRow({ name, ram, total }: { name: string; ram: number; total: number }) {
   const pct = Math.min(100, (ram / total) * 100);
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-      <span style={{ width: 96, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+      <span
+        style={{
+          width: 92,
+          overflow: 'hidden',
+          whiteSpace: 'nowrap',
+          textOverflow: 'ellipsis',
+        }}
+      >
         {name}
+      </span>
+      <span
+        style={{
+          width: 50,
+          fontFamily: 'var(--font-monaco)',
+          fontSize: 13,
+          color: 'var(--plat-700)',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {ram.toFixed(1)} MB
       </span>
       <div
         className="chrome-inset"
         style={{
           flex: 1,
-          height: 12,
+          height: 9,
           background: 'var(--plat-white)',
-          position: 'relative',
           padding: 1,
         }}
       >
@@ -170,24 +206,11 @@ function MemRow({ name, ram, color, total }: { name: string; ram: number; color:
           style={{
             height: '100%',
             width: `${pct}%`,
-            background: color,
-            backgroundImage:
-              'repeating-linear-gradient(45deg, rgba(0,0,0,0.08) 0 2px, transparent 2px 4px)',
+            background:
+              'repeating-linear-gradient(90deg, #3a7cd9 0 2px, #5a96e3 2px 4px)',
           }}
         />
       </div>
-      <span
-        style={{
-          width: 56,
-          textAlign: 'right',
-          fontFamily: 'var(--font-monaco)',
-          fontSize: 13,
-          color: 'var(--plat-700)',
-          fontVariantNumeric: 'tabular-nums',
-        }}
-      >
-        {ram.toFixed(1)}M
-      </span>
     </div>
   );
 }
