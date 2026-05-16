@@ -29,6 +29,18 @@ export const WALLPAPERS: Wallpaper[] = [
     style: { backgroundColor: '#cfcfcf' },
   },
   {
+    id: 'azul',
+    name: 'Azul',
+    style: {
+      backgroundColor: '#a8b9d4',
+      backgroundImage:
+        'radial-gradient(circle, #7689a8 0.8px, transparent 1.4px),' +
+        'radial-gradient(circle, #c9d4e6 0.8px, transparent 1.4px)',
+      backgroundSize: '6px 6px, 6px 6px',
+      backgroundPosition: '0 0, 3px 3px',
+    },
+  },
+  {
     id: 'bondi',
     name: 'Bondi',
     style: {
@@ -48,6 +60,16 @@ export const WALLPAPERS: Wallpaper[] = [
     },
   },
   {
+    id: 'linen',
+    name: 'Linen',
+    style: {
+      backgroundColor: '#ece4d2',
+      backgroundImage:
+        'repeating-linear-gradient(0deg, rgba(120,100,70,0.18) 0 1px, transparent 1px 3px),' +
+        'repeating-linear-gradient(90deg, rgba(120,100,70,0.12) 0 1px, transparent 1px 3px)',
+    },
+  },
+  {
     id: 'spring-grass',
     name: 'Spring Grass',
     style: {
@@ -59,6 +81,60 @@ export const WALLPAPERS: Wallpaper[] = [
         'linear-gradient(-45deg, transparent 75%, #5e8c4d 75%)',
       backgroundSize: '4px 4px',
       backgroundPosition: '0 0, 0 2px, 2px -2px, -2px 0',
+    },
+  },
+  {
+    id: 'graph-paper',
+    name: 'Graph Paper',
+    style: {
+      backgroundColor: '#e8eef5',
+      backgroundImage:
+        'linear-gradient(rgba(60,90,140,0.18) 1px, transparent 1px),' +
+        'linear-gradient(90deg, rgba(60,90,140,0.18) 1px, transparent 1px),' +
+        'linear-gradient(rgba(60,90,140,0.07) 1px, transparent 1px),' +
+        'linear-gradient(90deg, rgba(60,90,140,0.07) 1px, transparent 1px)',
+      backgroundSize: '40px 40px, 40px 40px, 8px 8px, 8px 8px',
+    },
+  },
+  {
+    id: 'confetti',
+    name: 'Confetti',
+    style: {
+      backgroundColor: '#dadada',
+      backgroundImage:
+        'radial-gradient(circle at 12% 18%, #e84a3b 1.6px, transparent 2px),' +
+        'radial-gradient(circle at 78% 32%, #3a7cd9 1.6px, transparent 2px),' +
+        'radial-gradient(circle at 34% 68%, #fdd03a 1.6px, transparent 2px),' +
+        'radial-gradient(circle at 62% 84%, #5fb95e 1.6px, transparent 2px),' +
+        'radial-gradient(circle at 48% 44%, #a93a92 1.6px, transparent 2px),' +
+        'radial-gradient(circle at 90% 60%, #f08a3c 1.6px, transparent 2px)',
+      backgroundSize: '48px 48px',
+    },
+  },
+  {
+    id: 'houndstooth',
+    name: 'Houndstooth',
+    style: {
+      backgroundColor: '#e8e8e8',
+      backgroundImage:
+        'linear-gradient(45deg, #2a2a2a 12%, transparent 12.5%, transparent 87%, #2a2a2a 87.5%),' +
+        'linear-gradient(45deg, #2a2a2a 12%, transparent 12.5%, transparent 87%, #2a2a2a 87.5%)',
+      backgroundSize: '14px 14px',
+      backgroundPosition: '0 0, 7px 7px',
+    },
+  },
+  {
+    id: 'argyle',
+    name: 'Argyle',
+    style: {
+      backgroundColor: '#6a4f3b',
+      backgroundImage:
+        'linear-gradient(45deg, #3f2c20 25%, transparent 25%, transparent 75%, #3f2c20 75%),' +
+        'linear-gradient(45deg, #3f2c20 25%, transparent 25%, transparent 75%, #3f2c20 75%),' +
+        'linear-gradient(0deg, rgba(255,220,180,0.4) 1px, transparent 1px),' +
+        'linear-gradient(90deg, rgba(255,220,180,0.4) 1px, transparent 1px)',
+      backgroundSize: '40px 40px, 40px 40px, 40px 40px, 40px 40px',
+      backgroundPosition: '0 0, 20px 20px, 20px 0, 0 20px',
     },
   },
   {
@@ -77,6 +153,31 @@ export const WALLPAPERS: Wallpaper[] = [
       backgroundImage:
         'repeating-linear-gradient(45deg, #888 0 1px, transparent 1px 4px),' +
         'repeating-linear-gradient(-45deg, #999 0 1px, transparent 1px 5px)',
+    },
+  },
+  {
+    id: 'ocean',
+    name: 'Ocean',
+    style: {
+      backgroundColor: '#1f4a78',
+      backgroundImage:
+        'repeating-linear-gradient(180deg, rgba(255,255,255,0.10) 0 1px, transparent 1px 8px),' +
+        'repeating-linear-gradient(90deg, rgba(0,30,60,0.25) 0 1px, transparent 1px 14px)',
+    },
+  },
+  {
+    id: 'galaxy',
+    name: 'Galaxy',
+    style: {
+      backgroundColor: '#0b1226',
+      backgroundImage:
+        'radial-gradient(circle at 15% 22%, #ffffff 0.6px, transparent 1.2px),' +
+        'radial-gradient(circle at 72% 18%, #ffffff 0.6px, transparent 1.2px),' +
+        'radial-gradient(circle at 38% 65%, #ffe9c2 0.7px, transparent 1.3px),' +
+        'radial-gradient(circle at 86% 78%, #cfd8ff 0.6px, transparent 1.2px),' +
+        'radial-gradient(circle at 50% 40%, #ffffff 0.5px, transparent 1px),' +
+        'radial-gradient(ellipse at 30% 80%, rgba(120,90,180,0.25), transparent 50%)',
+      backgroundSize: '90px 110px, 140px 100px, 70px 90px, 110px 120px, 40px 50px, 100% 100%',
     },
   },
   {
