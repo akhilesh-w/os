@@ -82,9 +82,16 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
   },
 
   minimizeWindow: (id) => {
+    const win = get().windows.find(w => w.id === id);
+    let target: { x: number; y: number } | undefined;
+    if (win && typeof document !== 'undefined') {
+      const dockEl = document.querySelector(`[data-app-id="${win.appId}"]`);
+      const rect = dockEl?.getBoundingClientRect();
+      if (rect) target = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }
     set(state => ({
       windows: state.windows.map(w =>
-        w.id === id ? { ...w, isMinimized: true } : w
+        w.id === id ? { ...w, isMinimized: true, minimizeTarget: target } : w
       ),
       activeWindowId: state.activeWindowId === id ? null : state.activeWindowId,
     }));

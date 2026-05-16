@@ -14,6 +14,7 @@ export default function DockIcon({ appId, icon, label, isOpen, onClick }: DockIc
   const launchToken = useWindowStore(s => s.launchTokens[appId] ?? 0);
   return (
     <button
+      data-app-id={appId}
       onClick={() => {
         playClick();
         onClick();

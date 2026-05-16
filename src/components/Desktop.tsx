@@ -219,7 +219,7 @@ export default function Desktop() {
         {windows.map(win => {
           const app = APPS_BY_ID[win.appId];
           const AppComponent = app?.component;
-          if (!AppComponent || win.isMinimized) return null;
+          if (!AppComponent) return null;
           return (
             <Window key={win.id} state={win}>
               <AppComponent />

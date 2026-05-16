@@ -11,6 +11,8 @@ export interface WindowState {
   isMinimized: boolean;
   isMaximized: boolean;
   zIndex: number;
+  /** Cursor target captured when the window was minimized — used by the genie animation to fly toward the dock icon. Viewport coordinates of the icon center. */
+  minimizeTarget?: { x: number; y: number };
 }
 
 export type MenuItem =

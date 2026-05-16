@@ -112,19 +112,38 @@ export default function Window({ state: win, children }: WindowProps) {
     ? { left: 0, top: MENU_BAR_HEIGHT, width: '100vw', height: `calc(100vh - ${MENU_BAR_HEIGHT}px)` }
     : { left: win.x, top: win.y, width: win.width, height: win.height };
 
+  // Genie: shrink toward the dock icon. We anchor `transform-origin` at the
+  // dock-icon center (in window-local coords) and scale to ~0. The off-box
+  // origin pulls the shrinking rectangle toward the dock visually.
+  const winLeft = typeof computedStyle.left === 'number' ? computedStyle.left : 0;
+  const winTop = typeof computedStyle.top === 'number' ? computedStyle.top : MENU_BAR_HEIGHT;
+  const target = win.minimizeTarget;
+  const originX = target ? target.x - winLeft : '50%';
+  const originY = target ? target.y - winTop : '50%';
+
   return (
     <motion.div
       key={win.id}
       initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
+      animate={{
+        opacity: win.isMinimized ? 0 : 1,
+        scale: win.isMinimized ? 0.04 : 1,
+      }}
       exit={{ opacity: 0, scale: 0.94 }}
-      transition={{ duration: 0.12, ease: 'easeOut' }}
+      transition={
+        win.isMinimized
+          ? { duration: 0.42, ease: [0.45, 0, 0.2, 1] }
+          : { duration: 0.32, ease: [0.18, 0.9, 0.3, 1] }
+      }
       className="absolute overflow-hidden flex flex-col group/window window-shadow"
       style={{
         ...computedStyle,
         zIndex: win.zIndex,
         border: '1px solid var(--plat-900)',
         background: 'var(--plat-white)',
+        pointerEvents: win.isMinimized ? 'none' : 'auto',
+        transformOrigin:
+          typeof originX === 'number' ? `${originX}px ${originY}px` : `${originX} ${originY}`,
       }}
       onMouseDown={() => focusWindow(win.id)}
     >
