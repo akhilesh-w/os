@@ -123,6 +123,7 @@ export default function Music() {
 
   const track = PLAYLIST[index];
 
+  // Load the audio whenever the selected track changes.
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
@@ -131,24 +132,44 @@ export default function Music() {
     setDuration(0);
     a.src = track.src;
     a.load();
-    if (isPlaying) a.play().catch(() => setStatus('error'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
+
+  // Drive play/pause off `isPlaying` + `index`. The first play() call right
+  // after src+load can reject because the browser hasn't buffered enough
+  // yet — so we also listen for `canplay` and retry there. This is what
+  // makes the *first* press of play actually start the song instead of
+  // silently failing and only working after a track change.
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (!isPlaying) {
+      a.pause();
+      return;
+    }
+    const attempt = () => {
+      // Promise rejection is normal during loading; the canplay listener
+      // below will fire once the buffer is ready and try again. Real
+      // playback errors come through the audio element's onError.
+      a.play().catch(() => {});
+    };
+    attempt();
+    a.addEventListener('canplay', attempt);
+    return () => {
+      a.removeEventListener('canplay', attempt);
+    };
+  }, [isPlaying, index]);
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume / 100;
   }, [volume]);
 
-  // Playback
+  // Toggle through the isPlaying state so the single play/pause effect above
+  // is the only place that touches the audio element. The audio's own
+  // onPlay/onPause handlers keep isPlaying in sync if the browser changes
+  // playback state on its own (e.g. system media controls).
   const togglePlay = useCallback(() => {
-    const a = audioRef.current;
-    if (!a) return;
-    if (a.paused) {
-      a.play().then(() => setIsPlaying(true)).catch(() => setStatus('error'));
-    } else {
-      a.pause();
-      setIsPlaying(false);
-    }
+    setIsPlaying(p => !p);
   }, []);
 
   const nextTrack = useCallback(() => {
