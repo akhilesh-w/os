@@ -4,6 +4,7 @@ import { useWindowStore } from '../store/windowStore';
 import { useDesktopStore, type IconPosition } from '../store/desktopStore';
 import { useWallpaperStore, getWallpaper, WALLPAPERS } from '../store/wallpaperStore';
 import { APPS_BY_ID } from '../apps/registry';
+import { useIsMobile } from '../lib/useIsMobile';
 import Window from './Window';
 import PixelIcon from './PixelIcon';
 import ContextMenu from './ContextMenu';
@@ -63,6 +64,7 @@ export default function Desktop() {
 
   const [selected, setSelected] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const isMobile = useIsMobile();
   const [viewport, setViewport] = useState(() => ({
     w: typeof window !== 'undefined' ? window.innerWidth : 1280,
     h: typeof window !== 'undefined' ? window.innerHeight : 800,
@@ -173,7 +175,7 @@ export default function Desktop() {
         setContextMenu({ x: e.clientX, y: e.clientY });
       }}
     >
-      {DESKTOP_ICONS.map(icon => {
+      {!isMobile && DESKTOP_ICONS.map(icon => {
         const pos = resolvedPositions[icon.id];
         const isSelected = selected === icon.id;
         return (

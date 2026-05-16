@@ -5,6 +5,7 @@ import { useSoundStore } from '../store/soundStore';
 import { useScreensaverStore } from '../store/screensaverStore';
 import { playBeep, playStartup } from '../lib/sounds';
 import { APPS_BY_ID } from '../apps/registry';
+import { useIsMobile } from '../lib/useIsMobile';
 import type { MenuDefinition } from '../types';
 import MenuBarDropdown from './MenuBarDropdown';
 
@@ -48,6 +49,7 @@ export default function MenuBar() {
   const soundEnabled = useSoundStore(s => s.enabled);
   const toggleSound = useSoundStore(s => s.toggle);
   const sleep = useScreensaverStore(s => s.setForceOn);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 30_000);
@@ -222,7 +224,10 @@ export default function MenuBar() {
         }}
       >
         <div className="flex items-center gap-0">
-          {menus.map(menu => {
+          {(isMobile
+            ? menus.filter(m => m.key === 'apple' || m.key === 'app' || m.key === 'special')
+            : menus
+          ).map(menu => {
             const isOpen = openMenuKey === menu.key;
             const isAppleMenu = menu.key === 'apple';
             const isAppMenu = menu.key === 'app';

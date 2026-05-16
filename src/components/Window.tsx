@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { useWindowStore } from '../store/windowStore';
+import { useIsMobile } from '../lib/useIsMobile';
 import type { WindowState } from '../types';
 
 interface WindowProps {
@@ -28,10 +29,12 @@ export default function Window({ state: win, children }: WindowProps) {
   const updateWindowPosition = useWindowStore(s => s.updateWindowPosition);
   const updateWindowSize = useWindowStore(s => s.updateWindowSize);
   const isActive = useWindowStore(s => s.activeWindowId === win.id);
+  const isMobile = useIsMobile();
+  const fullscreen = win.isMaximized || isMobile;
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (win.isMaximized) return;
+      if (win.isMaximized || isMobile) return;
       if ((e.target as HTMLElement).closest('.window-controls')) return;
 
       e.preventDefault();
@@ -68,12 +71,12 @@ export default function Window({ state: win, children }: WindowProps) {
       target.addEventListener('pointerup', onUp);
       target.addEventListener('pointercancel', onUp);
     },
-    [win.id, win.x, win.y, win.width, win.isMaximized, focusWindow, updateWindowPosition]
+    [win.id, win.x, win.y, win.width, win.isMaximized, isMobile, focusWindow, updateWindowPosition]
   );
 
   const handleResizePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (win.isMaximized) return;
+      if (win.isMaximized || isMobile) return;
       e.preventDefault();
       e.stopPropagation();
       focusWindow(win.id);
@@ -108,8 +111,15 @@ export default function Window({ state: win, children }: WindowProps) {
     [win.id, win.x, win.y, win.width, win.height, win.isMaximized, focusWindow, updateWindowSize]
   );
 
-  const computedStyle = win.isMaximized
-    ? { left: 0, top: MENU_BAR_HEIGHT, width: '100vw', height: `calc(100vh - ${MENU_BAR_HEIGHT}px)` }
+  const computedStyle = fullscreen
+    ? {
+        left: 0,
+        top: MENU_BAR_HEIGHT,
+        width: '100vw',
+        height: isMobile
+          ? `calc(100vh - ${MENU_BAR_HEIGHT}px - 64px)` // leave room for dock
+          : `calc(100vh - ${MENU_BAR_HEIGHT}px)`,
+      }
     : { left: win.x, top: win.y, width: win.width, height: win.height };
 
   // Genie: shrink toward the dock icon. We anchor `transform-origin` at the
@@ -219,7 +229,7 @@ export default function Window({ state: win, children }: WindowProps) {
       </div>
 
       {/* Size box (bottom-right resize grip) — Mac OS 8 style */}
-      {!win.isMaximized && (
+      {!fullscreen && (
         <div
           className="size-box"
           onPointerDown={handleResizePointerDown}
