@@ -13,6 +13,7 @@ export default function Dock() {
         {APPS.filter(app => !app.hideFromDock).map(app => (
           <DockIcon
             key={app.id}
+            appId={app.id}
             icon={app.icon}
             label={app.name}
             isOpen={isOpen(app.id)}

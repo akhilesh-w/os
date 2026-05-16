@@ -1,14 +1,17 @@
 import PixelIcon from './PixelIcon';
 import { playClick } from '../lib/sounds';
+import { useWindowStore } from '../store/windowStore';
 
 interface DockIconProps {
+  appId: string;
   icon: string;
   label: string;
   isOpen: boolean;
   onClick: () => void;
 }
 
-export default function DockIcon({ icon, label, isOpen, onClick }: DockIconProps) {
+export default function DockIcon({ appId, icon, label, isOpen, onClick }: DockIconProps) {
+  const launchToken = useWindowStore(s => s.launchTokens[appId] ?? 0);
   return (
     <button
       onClick={() => {
@@ -18,7 +21,13 @@ export default function DockIcon({ icon, label, isOpen, onClick }: DockIconProps
       aria-label={label}
       className="dock-icon-btn"
     >
-      <PixelIcon name={icon} size={28} />
+      <span
+        key={launchToken}
+        className={launchToken > 0 ? 'dock-bounce' : undefined}
+        style={{ display: 'inline-flex' }}
+      >
+        <PixelIcon name={icon} size={28} />
+      </span>
       {isOpen && (
         <span
           aria-hidden="true"
@@ -30,6 +39,7 @@ export default function DockIcon({ icon, label, isOpen, onClick }: DockIconProps
             width: 4,
             height: 4,
             background: 'var(--plat-900)',
+            borderRadius: '50%',
           }}
         />
       )}

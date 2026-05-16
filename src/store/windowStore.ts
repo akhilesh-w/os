@@ -7,6 +7,7 @@ interface WindowStore {
   windows: WindowState[];
   maxZIndex: number;
   activeWindowId: string | null;
+  launchTokens: Record<string, number>;
   openWindow: (appId: string) => void;
   closeWindow: (id: string) => void;
   minimizeWindow: (id: string) => void;
@@ -23,6 +24,7 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
   windows: [],
   maxZIndex: 10,
   activeWindowId: null,
+  launchTokens: {},
 
   openWindow: (appId) => {
     const app = APPS_BY_ID[appId];
@@ -65,6 +67,7 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
       windows: [...state.windows, newWindow],
       maxZIndex: state.maxZIndex + 1,
       activeWindowId: newWindow.id,
+      launchTokens: { ...state.launchTokens, [appId]: (state.launchTokens[appId] ?? 0) + 1 },
     }));
     playOpen();
   },
