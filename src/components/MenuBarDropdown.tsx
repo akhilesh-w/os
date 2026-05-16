@@ -73,7 +73,7 @@ export default function MenuBarDropdown({ anchorLeft, items, onClose }: MenuBarD
               display: 'flex',
               alignItems: 'center',
               width: '100%',
-              padding: '1px 16px 1px 18px',
+              padding: '1px 16px 1px 6px',
               background: 'transparent',
               border: 'none',
               color: disabled ? 'var(--plat-400)' : 'var(--plat-900)',
@@ -85,6 +85,9 @@ export default function MenuBarDropdown({ anchorLeft, items, onClose }: MenuBarD
               gap: 16,
             }}
           >
+            <span style={{ width: 12, textAlign: 'center', fontWeight: 700 }} aria-hidden="true">
+              {item.checked ? '✓' : ''}
+            </span>
             <span style={{ flex: 1, whiteSpace: 'nowrap' }}>{item.label}</span>
             {item.shortcut && (
               <span

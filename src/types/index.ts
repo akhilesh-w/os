@@ -20,6 +20,8 @@ export type MenuItem =
       onSelect?: () => void;
       disabled?: boolean;
       shortcut?: string;
+      /** When true, renders a classic Mac ✓ before the label. */
+      checked?: boolean;
     }
   | { type: 'separator' };
 
@@ -38,4 +40,6 @@ export interface AppDefinition {
   defaultHeight: number;
   component?: ComponentType;
   externalUrl?: string;
+  hideFromDock?: boolean;
+  hideFromLauncher?: boolean;
 }

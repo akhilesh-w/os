@@ -1,4 +1,5 @@
 import PixelIcon from './PixelIcon';
+import { playClick } from '../lib/sounds';
 
 interface DockIconProps {
   icon: string;
@@ -10,7 +11,10 @@ interface DockIconProps {
 export default function DockIcon({ icon, label, isOpen, onClick }: DockIconProps) {
   return (
     <button
-      onClick={onClick}
+      onClick={() => {
+        playClick();
+        onClick();
+      }}
       aria-label={label}
       className="dock-icon-btn"
     >

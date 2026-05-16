@@ -1,4 +1,4 @@
-import { useCallback, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { useWindowStore } from '../store/windowStore';
 import type { WindowState } from '../types';
@@ -8,8 +8,17 @@ interface WindowProps {
   children: ReactNode;
 }
 
+const WindowIdContext = createContext<string | null>(null);
+
+/** Read the id of the window an app is rendered inside. Returns null outside a Window. */
+export function useWindowId(): string | null {
+  return useContext(WindowIdContext);
+}
+
 const MENU_BAR_HEIGHT = 22;
 const MIN_VISIBLE = 40;
+const MIN_WIDTH = 220;
+const MIN_HEIGHT = 140;
 
 export default function Window({ state: win, children }: WindowProps) {
   const closeWindow = useWindowStore(s => s.closeWindow);
@@ -17,6 +26,7 @@ export default function Window({ state: win, children }: WindowProps) {
   const maximizeWindow = useWindowStore(s => s.maximizeWindow);
   const focusWindow = useWindowStore(s => s.focusWindow);
   const updateWindowPosition = useWindowStore(s => s.updateWindowPosition);
+  const updateWindowSize = useWindowStore(s => s.updateWindowSize);
   const isActive = useWindowStore(s => s.activeWindowId === win.id);
 
   const handlePointerDown = useCallback(
@@ -59,6 +69,43 @@ export default function Window({ state: win, children }: WindowProps) {
       target.addEventListener('pointercancel', onUp);
     },
     [win.id, win.x, win.y, win.width, win.isMaximized, focusWindow, updateWindowPosition]
+  );
+
+  const handleResizePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (win.isMaximized) return;
+      e.preventDefault();
+      e.stopPropagation();
+      focusWindow(win.id);
+
+      const startMouseX = e.clientX;
+      const startMouseY = e.clientY;
+      const startW = win.width;
+      const startH = win.height;
+      const pointerId = e.pointerId;
+      const target = e.currentTarget;
+      target.setPointerCapture(pointerId);
+
+      const onMove = (ev: PointerEvent) => {
+        const vw = document.documentElement.clientWidth;
+        const vh = document.documentElement.clientHeight;
+        const maxW = Math.max(MIN_WIDTH, vw - win.x);
+        const maxH = Math.max(MIN_HEIGHT, vh - win.y);
+        const w = Math.min(Math.max(MIN_WIDTH, startW + ev.clientX - startMouseX), maxW);
+        const h = Math.min(Math.max(MIN_HEIGHT, startH + ev.clientY - startMouseY), maxH);
+        updateWindowSize(win.id, w, h);
+      };
+      const onUp = () => {
+        try { target.releasePointerCapture(pointerId); } catch {}
+        target.removeEventListener('pointermove', onMove);
+        target.removeEventListener('pointerup', onUp);
+        target.removeEventListener('pointercancel', onUp);
+      };
+      target.addEventListener('pointermove', onMove);
+      target.addEventListener('pointerup', onUp);
+      target.addEventListener('pointercancel', onUp);
+    },
+    [win.id, win.x, win.y, win.width, win.height, win.isMaximized, focusWindow, updateWindowSize]
   );
 
   const computedStyle = win.isMaximized
@@ -147,8 +194,20 @@ export default function Window({ state: win, children }: WindowProps) {
         className="flex-1 overflow-auto"
         style={{ background: 'var(--plat-white)' }}
       >
-        {children}
+        <WindowIdContext.Provider value={win.id}>
+          {children}
+        </WindowIdContext.Provider>
       </div>
+
+      {/* Size box (bottom-right resize grip) — Mac OS 8 style */}
+      {!win.isMaximized && (
+        <div
+          className="size-box"
+          onPointerDown={handleResizePointerDown}
+          aria-label="Resize"
+          title="Resize"
+        />
+      )}
     </motion.div>
   );
 }

@@ -6,14 +6,14 @@ Tasks to make the site match [ryos.ryo.lu](https://os.ryo.lu/), roughly in prior
 |---|------|-------------|
 | 1 | Boot/login screen | Startup animation — Apple logo, progress bar, fade into desktop. First impression like ryOS. |
 | 2 | Authentic macOS Aqua window chrome | Brushed aluminum title bar, proper traffic light buttons (show × − + on hover), toolbar area, status bar, resize handle. |
-| 3 | Menu bar dropdown menus | Clicking menu bar items opens real dropdowns. Each app registers its own items. Apple menu has About, Sleep, Shut Down. |
+| 3 | ~~Menu bar dropdown menus~~ ✓ | ~~Clicking menu bar items opens real dropdowns. Each app registers its own items. Apple menu has About, Sleep, Shut Down.~~ Done — Apple / app-name / File / Edit / View / Special / Help with hover-to-switch, ✓ checkmarks on toggles, click-outside + Escape dismiss; ⌘W close + ⌘N new Finder. Per-app menu inherits the active window's name. |
 | 4 | Dock magnification & bounce | Proximity-based icon magnification on hover, bounce animation on launch, indicator dot for open apps, tooltip labels. |
 | 5 | Desktop right-click context menu | Right-click desktop → Change Wallpaper, New Folder, Get Info, etc. |
-| 6 | Wallpaper picker | 6–8 built-in wallpapers (CSS gradients + SVG patterns), picker in desktop menu or Control Panels. |
-| 7 | Desktop icons | Draggable icons on desktop — Macintosh HD, Trash, app shortcuts. Double-click to open. |
-| 8 | System sounds | Classic Mac sounds via Web Audio API: startup chime, open/close whoosh, error beep, click. Toggle in settings. |
-| 9 | Control Panels app | System prefs: Appearance (wallpaper), Sound (toggle/volume), About This Mac (real gear from uses page). |
-| 10 | ~~iPod / Music app upgrade~~ ✓ | ~~Replace placeholder with iPod-style UI + real Spotify now-playing via existing akhileshw.xyz API.~~ Done — LCD + chrome clickwheel, live data via Vite proxy + Vercel rewrite to `/api/now-playing`. |
+| 6 | ~~Wallpaper picker~~ ✓ | ~~6–8 built-in wallpapers (CSS gradients + SVG patterns), picker in desktop menu or Control Panels.~~ Done — 8 patterns (Stippled Gray, Platinum, Bondi, Stationery, Spring Grass, Pinstripe, Random Patterns, Midnight) in Control Panels → Appearance, persisted via Zustand. |
+| 7 | ~~Desktop icons~~ ✓ | ~~Draggable icons on desktop — Macintosh HD, Trash, app shortcuts. Double-click to open.~~ Done — HD / Projects / README / Trash, pointer-drag with 3px threshold, positions persisted in Zustand (`desktopStore`), viewport-clamped. View → Clean Up Desktop resets to defaults. |
+| 8 | ~~System sounds~~ ✓ | ~~Classic Mac sounds via Web Audio API: startup chime, open/close whoosh, error beep, click. Toggle in settings.~~ Done — Web Audio synth in `src/lib/sounds.ts`: click, double-triangle beep, rising/falling filtered-noise whooshes, F# major Quadra-style startup chime. All routed through a master gain wired to `soundStore.volume`. Toggle in Apple menu + Control Panels → Sound. |
+| 9 | ~~Control Panels app~~ ✓ | ~~System prefs: Appearance (wallpaper), Sound (toggle/volume), About This Mac (real gear from uses page).~~ Done — sidebar app with three panels. Opens from dock, Apple menu → Control Panels, or app menu → Preferences…. |
+| 10 | ~~iPod / Music app upgrade~~ ✓ | ~~Replace placeholder with iPod-style UI + real Spotify now-playing via existing akhileshw.xyz API.~~ Done — LCD + chrome clickwheel iPod that **plays audio** via `<audio>`. Starter playlist: ProleteR (CC BY-NC-ND 3.0) streamed from archive.org. Swap by editing `PLAYLIST` in `src/apps/Music.tsx`; drop local files in `public/audio/` and reference as `/audio/x.mp3`. |
 | 11 | Blog / TextEdit app | TextEdit-style app rendering MDX blog posts. Each post opens in its own window. |
 | 12 | Screensaver | Activates after ~2 min idle — starfield, floating clock, or photo slideshow. Click/key to dismiss. |
 | 13 | Window minimize animation (genie effect) | Window "sucks" into dock on minimize using Framer Motion AnimatePresence. |

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useWindowStore } from '../store/windowStore';
 import { useDesktopStore, type IconPosition } from '../store/desktopStore';
+import { useWallpaperStore, getWallpaper } from '../store/wallpaperStore';
 import { APPS_BY_ID } from '../apps/registry';
 import Window from './Window';
 import PixelIcon from './PixelIcon';
@@ -48,6 +49,8 @@ export default function Desktop() {
   const openWindow = useWindowStore(s => s.openWindow);
   const positions = useDesktopStore(s => s.positions);
   const setPosition = useDesktopStore(s => s.setPosition);
+  const wallpaperId = useWallpaperStore(s => s.currentId);
+  const wallpaper = getWallpaper(wallpaperId);
 
   const [selected, setSelected] = useState<string | null>(null);
   const [viewport, setViewport] = useState(() => ({
@@ -115,8 +118,8 @@ export default function Desktop() {
 
   return (
     <div
-      className="desktop-pattern fixed inset-0 overflow-hidden"
-      style={{ paddingTop: MENU_BAR_HEIGHT }}
+      className="fixed inset-0 overflow-hidden"
+      style={{ ...wallpaper.style, paddingTop: MENU_BAR_HEIGHT }}
       onMouseDown={e => {
         if (e.target === e.currentTarget) setSelected(null);
       }}

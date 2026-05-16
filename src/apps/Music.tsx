@@ -1,71 +1,486 @@
-import { useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
+import { PLAYLIST, type Track } from '../lib/music';
+import { playTick, playClick } from '../lib/sounds';
 
-interface NowPlaying {
-  isPlaying: boolean;
-  title?: string;
-  artist?: string;
-  album?: string;
-  albumImageUrl?: string;
-  songUrl?: string;
-  lastPlayedAt?: string;
+const ALBUMS = Array.from(new Set(PLAYLIST.map(t => t.album))).sort();
+const ARTISTS = Array.from(new Set(PLAYLIST.map(t => t.artist))).sort();
+
+// ────────── Persisted state ──────────
+
+function usePersistedState<T>(key: string, initial: T): [T, Dispatch<SetStateAction<T>>] {
+  const [val, setVal] = useState<T>(() => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw == null) return initial;
+      return JSON.parse(raw) as T;
+    } catch {
+      return initial;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, JSON.stringify(val));
+    } catch {}
+  }, [key, val]);
+  return [val, setVal];
 }
 
-type LoadState = 'loading' | 'ready' | 'error';
-type Screen = 'now-playing' | 'menu';
+// ────────── Types ──────────
 
-const API_URL = '/api/now-playing';
-const REFRESH_MS = 30_000;
+type ScreenId =
+  | 'main'
+  | 'music'
+  | 'songs'
+  | 'albums'
+  | 'album'
+  | 'artists'
+  | 'artist'
+  | 'playlists'
+  | 'extras'
+  | 'clock'
+  | 'settings'
+  | 'shuffle-setting'
+  | 'repeat-setting'
+  | 'about'
+  | 'now-playing';
+
+interface Frame {
+  id: ScreenId;
+  param?: string;
+  selected: number;
+  scrollTop: number;
+}
+
+interface MenuItem {
+  label: string;
+  onSelect: () => void;
+  rightLabel?: string;
+  marker?: '♪' | '✓';
+}
+
+type Repeat = 'off' | 'one' | 'all';
+type NpMode = 'normal' | 'volume' | 'scrub' | 'rating';
+
+const VISIBLE_ITEMS = 7;
+const LCD_W = 218;
+const LCD_H = 162;
+
+// ────────── Main ──────────
 
 export default function Music() {
-  const [data, setData] = useState<NowPlaying | null>(null);
-  const [status, setStatus] = useState<LoadState>('loading');
-  const [screen, setScreen] = useState<Screen>('now-playing');
-  const [tick, setTick] = useState(0);
-  const fetchRef = useRef<AbortController | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const refresh = () => {
-    fetchRef.current?.abort();
-    const ctrl = new AbortController();
-    fetchRef.current = ctrl;
-    setStatus(s => (data ? s : 'loading'));
-    fetch(API_URL, { signal: ctrl.signal, cache: 'no-store' })
-      .then(r => {
-        if (!r.ok) throw new Error(String(r.status));
-        return r.json() as Promise<NowPlaying>;
-      })
-      .then(json => {
-        setData(json);
-        setStatus('ready');
-      })
-      .catch(err => {
-        if (err.name === 'AbortError') return;
-        setStatus('error');
-      });
-  };
+  const [index, setIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+
+  const [volume, setVolume] = usePersistedState('ipod:volume', 70);
+  const [shuffle, setShuffle] = usePersistedState('ipod:shuffle', false);
+  const [repeat, setRepeat] = usePersistedState<Repeat>('ipod:repeat', 'off');
+  const [backlight, setBacklight] = usePersistedState('ipod:backlight', true);
+  const [ratings, setRatings] = usePersistedState<number[]>(
+    'ipod:ratings',
+    new Array(PLAYLIST.length).fill(0)
+  );
+
+  const [stack, setStack] = useState<Frame[]>([{ id: 'main', selected: 0, scrollTop: 0 }]);
+  const top = stack[stack.length - 1];
+
+  const [npMode, setNpMode] = useState<NpMode>('normal');
+  const npTimerRef = useRef<number | null>(null);
+
+  const [battery, setBattery] = useState(92);
+  useEffect(() => {
+    const i = window.setInterval(() => {
+      setBattery(b => (b > 6 ? b - 1 : 78 + Math.floor(Math.random() * 20)));
+    }, 90_000);
+    return () => clearInterval(i);
+  }, []);
+
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const i = window.setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(i);
+  }, []);
+
+  const track = PLAYLIST[index];
 
   useEffect(() => {
-    refresh();
-    const id = setInterval(refresh, REFRESH_MS);
-    return () => {
-      clearInterval(id);
-      fetchRef.current?.abort();
-    };
+    const a = audioRef.current;
+    if (!a) return;
+    setStatus('loading');
+    setCurrentTime(0);
+    setDuration(0);
+    a.src = track.src;
+    a.load();
+    if (isPlaying) a.play().catch(() => setStatus('error'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [index]);
 
   useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 1000);
-    return () => clearInterval(id);
+    if (audioRef.current) audioRef.current.volume = volume / 100;
+  }, [volume]);
+
+  // Playback
+  const togglePlay = useCallback(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (a.paused) {
+      a.play().then(() => setIsPlaying(true)).catch(() => setStatus('error'));
+    } else {
+      a.pause();
+      setIsPlaying(false);
+    }
   }, []);
 
-  const openSong = () => {
-    if (data?.songUrl) window.open(data.songUrl, '_blank', 'noopener,noreferrer');
+  const nextTrack = useCallback(() => {
+    if (shuffle && PLAYLIST.length > 1) {
+      let n: number;
+      do {
+        n = Math.floor(Math.random() * PLAYLIST.length);
+      } while (n === index);
+      setIndex(n);
+      setIsPlaying(true);
+      return;
+    }
+    setIndex(i => (i + 1) % PLAYLIST.length);
+    setIsPlaying(true);
+  }, [shuffle, index]);
+
+  const prevTrack = useCallback(() => {
+    const a = audioRef.current;
+    if (a && a.currentTime > 3) {
+      a.currentTime = 0;
+      return;
+    }
+    setIndex(i => (i - 1 + PLAYLIST.length) % PLAYLIST.length);
+  }, []);
+
+  const handleTrackEnded = () => {
+    if (repeat === 'one') {
+      const a = audioRef.current;
+      if (a) {
+        a.currentTime = 0;
+        a.play().catch(() => {});
+      }
+      return;
+    }
+    if (repeat === 'all' || shuffle) {
+      nextTrack();
+      return;
+    }
+    if (index < PLAYLIST.length - 1) {
+      setIndex(i => i + 1);
+      setIsPlaying(true);
+    } else {
+      setIsPlaying(false);
+    }
   };
 
-  const onCenter = () => {
-    if (screen === 'menu') setScreen('now-playing');
-    else openSong();
-  };
+  // Stack
+  const push = useCallback((id: ScreenId, param?: string) => {
+    playClick();
+    setStack(s => [...s, { id, param, selected: 0, scrollTop: 0 }]);
+  }, []);
+
+  const pop = useCallback(() => {
+    playClick();
+    setStack(s => (s.length > 1 ? s.slice(0, -1) : s));
+  }, []);
+
+  const setTopSel = useCallback((sel: number, items: MenuItem[]) => {
+    setStack(s =>
+      s.map((f, i) => {
+        if (i !== s.length - 1) return f;
+        let scrollTop = f.scrollTop;
+        if (sel < scrollTop) scrollTop = sel;
+        if (sel >= scrollTop + VISIBLE_ITEMS) scrollTop = sel - VISIBLE_ITEMS + 1;
+        scrollTop = Math.max(0, Math.min(Math.max(0, items.length - VISIBLE_ITEMS), scrollTop));
+        return { ...f, selected: sel, scrollTop };
+      })
+    );
+  }, []);
+
+  // Now-playing transient mode
+  const resetNpTimer = useCallback(() => {
+    if (npTimerRef.current != null) clearTimeout(npTimerRef.current);
+    npTimerRef.current = window.setTimeout(() => setNpMode('normal'), 4500);
+  }, []);
+
+  const cycleNpMode = useCallback(() => {
+    setNpMode(m =>
+      m === 'normal' ? 'scrub' : m === 'scrub' ? 'rating' : m === 'rating' ? 'volume' : 'normal'
+    );
+    resetNpTimer();
+  }, [resetNpTimer]);
+
+  const handleNpScroll = useCallback(
+    (dir: 1 | -1) => {
+      const mode: NpMode = npMode === 'normal' ? 'volume' : npMode;
+      if (mode === 'volume') {
+        setVolume(v => Math.max(0, Math.min(100, v + dir * 4)));
+      } else if (mode === 'scrub') {
+        const a = audioRef.current;
+        if (a && duration) {
+          const next = Math.max(
+            0,
+            Math.min(duration, a.currentTime + dir * (duration > 120 ? 5 : 2))
+          );
+          a.currentTime = next;
+          setCurrentTime(next);
+        }
+      } else if (mode === 'rating') {
+        setRatings(rs => {
+          const next = [...rs];
+          next[index] = Math.max(0, Math.min(5, (next[index] ?? 0) + dir));
+          return next;
+        });
+      }
+      if (npMode === 'normal') setNpMode('volume');
+      resetNpTimer();
+    },
+    [npMode, duration, index, resetNpTimer, setRatings, setVolume]
+  );
+
+  // Items per screen
+  const itemsFor = useCallback(
+    (frame: Frame): MenuItem[] => {
+      switch (frame.id) {
+        case 'main':
+          return [
+            { label: 'Music', onSelect: () => push('music'), rightLabel: '›' },
+            { label: 'Extras', onSelect: () => push('extras'), rightLabel: '›' },
+            { label: 'Settings', onSelect: () => push('settings'), rightLabel: '›' },
+            {
+              label: 'Shuffle Songs',
+              onSelect: () => {
+                const n = Math.floor(Math.random() * PLAYLIST.length);
+                setShuffle(true);
+                setIndex(n);
+                setIsPlaying(true);
+                push('now-playing');
+              },
+            },
+            {
+              label: 'Backlight',
+              onSelect: () => setBacklight(b => !b),
+              rightLabel: backlight ? 'On' : 'Off',
+            },
+            { label: 'Now Playing', onSelect: () => push('now-playing'), rightLabel: '›' },
+          ];
+        case 'music':
+          return [
+            { label: 'Cover Flow', onSelect: () => push('about', 'coverflow-soon') },
+            { label: 'Playlists', onSelect: () => push('playlists'), rightLabel: '›' },
+            { label: 'Artists', onSelect: () => push('artists'), rightLabel: '›' },
+            { label: 'Albums', onSelect: () => push('albums'), rightLabel: '›' },
+            { label: 'Songs', onSelect: () => push('songs'), rightLabel: '›' },
+          ];
+        case 'songs':
+          return PLAYLIST.map((t, i) => ({
+            label: t.title,
+            marker: i === index ? '♪' : undefined,
+            onSelect: () => {
+              setIndex(i);
+              setIsPlaying(true);
+              push('now-playing');
+            },
+          }));
+        case 'albums':
+          return ALBUMS.map(a => ({
+            label: a,
+            onSelect: () => push('album', a),
+            rightLabel: '›',
+          }));
+        case 'album': {
+          const album = frame.param;
+          return PLAYLIST.map((t, i) => ({ t, i }))
+            .filter(({ t }) => t.album === album)
+            .map(({ t, i }) => ({
+              label: t.title,
+              marker: i === index ? '♪' : undefined,
+              onSelect: () => {
+                setIndex(i);
+                setIsPlaying(true);
+                push('now-playing');
+              },
+            }));
+        }
+        case 'artists':
+          return ARTISTS.map(a => ({
+            label: a,
+            onSelect: () => push('artist', a),
+            rightLabel: '›',
+          }));
+        case 'artist': {
+          const artist = frame.param;
+          return PLAYLIST.map((t, i) => ({ t, i }))
+            .filter(({ t }) => t.artist === artist)
+            .map(({ t, i }) => ({
+              label: t.title,
+              marker: i === index ? '♪' : undefined,
+              onSelect: () => {
+                setIndex(i);
+                setIsPlaying(true);
+                push('now-playing');
+              },
+            }));
+        }
+        case 'playlists':
+          return [
+            { label: 'On-The-Go', onSelect: () => push('songs'), rightLabel: '›' },
+            { label: 'Recently Added', onSelect: () => push('songs'), rightLabel: '›' },
+            { label: 'Top Rated', onSelect: () => push('songs'), rightLabel: '›' },
+          ];
+        case 'extras':
+          return [
+            { label: 'Clock', onSelect: () => push('clock'), rightLabel: '›' },
+            { label: 'Notes', onSelect: () => push('about', 'notes') },
+            { label: 'About', onSelect: () => push('about'), rightLabel: '›' },
+          ];
+        case 'settings':
+          return [
+            { label: 'About', onSelect: () => push('about'), rightLabel: '›' },
+            {
+              label: 'Shuffle',
+              onSelect: () => push('shuffle-setting'),
+              rightLabel: shuffle ? 'Songs' : 'Off',
+            },
+            {
+              label: 'Repeat',
+              onSelect: () => push('repeat-setting'),
+              rightLabel: repeat === 'off' ? 'Off' : repeat === 'one' ? 'One' : 'All',
+            },
+            {
+              label: 'Backlight',
+              onSelect: () => setBacklight(b => !b),
+              rightLabel: backlight ? 'On' : 'Off',
+            },
+            {
+              label: 'Reset Ratings',
+              onSelect: () => setRatings(new Array(PLAYLIST.length).fill(0)),
+            },
+          ];
+        case 'shuffle-setting':
+          return [
+            {
+              label: 'Off',
+              marker: !shuffle ? '✓' : undefined,
+              onSelect: () => {
+                setShuffle(false);
+                pop();
+              },
+            },
+            {
+              label: 'Songs',
+              marker: shuffle ? '✓' : undefined,
+              onSelect: () => {
+                setShuffle(true);
+                pop();
+              },
+            },
+          ];
+        case 'repeat-setting':
+          return [
+            {
+              label: 'Off',
+              marker: repeat === 'off' ? '✓' : undefined,
+              onSelect: () => {
+                setRepeat('off');
+                pop();
+              },
+            },
+            {
+              label: 'One',
+              marker: repeat === 'one' ? '✓' : undefined,
+              onSelect: () => {
+                setRepeat('one');
+                pop();
+              },
+            },
+            {
+              label: 'All',
+              marker: repeat === 'all' ? '✓' : undefined,
+              onSelect: () => {
+                setRepeat('all');
+                pop();
+              },
+            },
+          ];
+        default:
+          return [];
+      }
+    },
+    [backlight, index, push, pop, repeat, setBacklight, setRatings, setRepeat, setShuffle, shuffle]
+  );
+
+  const currentItems = useMemo(() => itemsFor(top), [top, itemsFor]);
+
+  const onScroll = useCallback(
+    (dir: 1 | -1) => {
+      playTick();
+      if (top.id === 'now-playing') return handleNpScroll(dir);
+      if (top.id === 'about' || top.id === 'clock') return;
+      const items = currentItems;
+      if (!items.length) return;
+      const next = (top.selected + dir + items.length) % items.length;
+      setTopSel(next, items);
+    },
+    [top, currentItems, setTopSel, handleNpScroll]
+  );
+
+  const onCenter = useCallback(() => {
+    if (top.id === 'now-playing') return cycleNpMode();
+    if (top.id === 'about' || top.id === 'clock') return;
+    const items = currentItems;
+    if (!items.length) return;
+    items[Math.min(top.selected, items.length - 1)]?.onSelect();
+  }, [top, currentItems, cycleNpMode]);
+
+  const onMenu = useCallback(() => {
+    if (stack.length === 1) return;
+    pop();
+  }, [stack.length, pop]);
+
+  const lcdTitle = useMemo(() => {
+    switch (top.id) {
+      case 'main': return 'iPod';
+      case 'music': return 'Music';
+      case 'songs': return 'Songs';
+      case 'albums': return 'Albums';
+      case 'album': return top.param ?? 'Album';
+      case 'artists': return 'Artists';
+      case 'artist': return top.param ?? 'Artist';
+      case 'playlists': return 'Playlists';
+      case 'extras': return 'Extras';
+      case 'clock': return 'Clock';
+      case 'settings': return 'Settings';
+      case 'shuffle-setting': return 'Shuffle';
+      case 'repeat-setting': return 'Repeat';
+      case 'about':
+        return top.param === 'notes'
+          ? 'Notes'
+          : top.param === 'coverflow-soon'
+          ? 'Cover Flow'
+          : 'About';
+      case 'now-playing': return 'Now Playing';
+      default: return 'iPod';
+    }
+  }, [top]);
+
+  const lcdBg = backlight ? '#c7d3b7' : '#7a8470';
+  const lcdFg = '#1a2410';
 
   return (
     <div
@@ -78,207 +493,537 @@ export default function Music() {
         color: 'var(--plat-900)',
       }}
     >
+      <audio
+        ref={audioRef}
+        preload="metadata"
+        onLoadedMetadata={e => {
+          setDuration(e.currentTarget.duration || 0);
+          setStatus('ready');
+        }}
+        onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={handleTrackEnded}
+        onError={() => setStatus('error')}
+      />
+
       <div
         className="chrome-outset flex flex-col items-center"
         style={{
           background: 'var(--plat-white)',
-          width: 240,
+          width: 252,
           padding: 14,
           gap: 14,
         }}
       >
-        {/* LCD screen */}
         <div
           className="chrome-inset"
           style={{
-            width: '100%',
-            height: 168,
-            background: '#c7d3b7',
-            color: '#1a2410',
-            padding: 0,
+            width: LCD_W,
+            height: LCD_H,
+            background: lcdBg,
+            color: lcdFg,
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
-            position: 'relative',
           }}
         >
-          {/* LCD header (inverse) */}
-          <div
-            style={{
-              background: '#1a2410',
-              color: '#c7d3b7',
-              fontFamily: 'var(--font-chicago)',
-              fontSize: 11,
-              padding: '2px 6px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              letterSpacing: '0.02em',
-            }}
-          >
-            <span>{screen === 'menu' ? 'iPod' : data?.isPlaying ? 'Now Playing' : 'Last Played'}</span>
-            <span style={{ fontFamily: 'var(--font-monaco)', fontSize: 13, lineHeight: 1 }}>
-              {data?.isPlaying ? '▶' : '❙❙'}
-            </span>
+          <LcdHeader
+            title={lcdTitle}
+            isPlaying={isPlaying}
+            battery={battery}
+            shuffle={shuffle}
+            repeat={repeat}
+            bg={lcdBg}
+            fg={lcdFg}
+          />
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            {top.id === 'now-playing' ? (
+              <NowPlayingView
+                track={track}
+                index={index}
+                currentTime={currentTime}
+                duration={duration}
+                status={status}
+                volume={volume}
+                rating={ratings[index] ?? 0}
+                npMode={npMode}
+                fg={lcdFg}
+                bg={lcdBg}
+              />
+            ) : top.id === 'about' ? (
+              <AboutView variant={top.param} />
+            ) : top.id === 'clock' ? (
+              <ClockView now={now} fg={lcdFg} bg={lcdBg} />
+            ) : (
+              <Menu items={currentItems} selected={top.selected} scrollTop={top.scrollTop} />
+            )}
           </div>
-
-          {screen === 'now-playing' ? (
-            <NowPlayingView data={data} status={status} tick={tick} />
-          ) : (
-            <MenuView onSelect={() => setScreen('now-playing')} onRefresh={refresh} />
-          )}
         </div>
 
-        {/* Clickwheel */}
         <ClickWheel
-          onMenu={() => setScreen(s => (s === 'menu' ? 'now-playing' : 'menu'))}
-          onPrev={refresh}
-          onNext={refresh}
-          onPlay={refresh}
+          onScroll={onScroll}
           onCenter={onCenter}
+          onMenu={onMenu}
+          onPlayPause={togglePlay}
+          onPrev={prevTrack}
+          onNext={nextTrack}
         />
       </div>
     </div>
   );
 }
 
-function NowPlayingView({
-  data,
-  status,
-  tick,
+// ────────── LCD header ──────────
+
+function LcdHeader({
+  title,
+  isPlaying,
+  battery,
+  shuffle,
+  repeat,
+  bg,
+  fg,
 }: {
-  data: NowPlaying | null;
-  status: LoadState;
-  tick: number;
+  title: string;
+  isPlaying: boolean;
+  battery: number;
+  shuffle: boolean;
+  repeat: Repeat;
+  bg: string;
+  fg: string;
 }) {
-  if (status === 'loading' && !data) {
-    return <Centered>connecting…</Centered>;
-  }
-  if (status === 'error' && !data) {
-    return <Centered>no signal</Centered>;
-  }
-  if (!data || !data.title) {
-    return <Centered>nothing playing</Centered>;
-  }
-
-  const since = data.lastPlayedAt ? relativeTime(data.lastPlayedAt, tick) : null;
-
   return (
     <div
       style={{
-        flex: 1,
+        background: fg,
+        color: bg,
+        fontFamily: 'var(--font-chicago)',
+        fontSize: 11,
+        padding: '2px 6px',
         display: 'flex',
-        padding: 8,
-        gap: 8,
-        minHeight: 0,
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        letterSpacing: '0.02em',
       }}
     >
-      <div
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {title}
+      </span>
+      <span
         style={{
-          width: 56,
-          height: 56,
-          flexShrink: 0,
-          border: '1px solid #1a2410',
-          background: '#1a2410',
-          overflow: 'hidden',
-          imageRendering: 'pixelated',
-        }}
-      >
-        {data.albumImageUrl ? (
-          <img
-            src={data.albumImageUrl}
-            alt=""
-            width={56}
-            height={56}
-            style={{
-              width: 56,
-              height: 56,
-              display: 'block',
-              filter: 'grayscale(1) contrast(1.1) brightness(1.05)',
-              opacity: 0.95,
-            }}
-          />
-        ) : null}
-      </div>
-      <div
-        style={{
-          flex: 1,
-          minWidth: 0,
-          display: 'flex',
-          flexDirection: 'column',
+          display: 'inline-flex',
+          gap: 4,
+          alignItems: 'center',
+          fontFamily: 'var(--font-monaco)',
           fontSize: 12,
-          lineHeight: 1.15,
         }}
       >
-        <Marquee text={data.title} bold />
-        <Marquee text={data.artist ?? ''} dim />
-        <Marquee text={data.album ?? ''} dim />
-        <div style={{ flex: 1 }} />
-        <div style={{ fontSize: 10, opacity: 0.75 }}>
-          {data.isPlaying ? '♪ live from Spotify' : since ? `played ${since}` : ''}
-        </div>
-      </div>
+        {shuffle && <span title="Shuffle">⤮</span>}
+        {repeat === 'one' && <span title="Repeat One">↻¹</span>}
+        {repeat === 'all' && <span title="Repeat All">↻</span>}
+        <span style={{ fontFamily: 'var(--font-monaco)', fontSize: 13, lineHeight: 1 }}>
+          {isPlaying ? '▶' : '❙❙'}
+        </span>
+        <BatteryGlyph pct={battery} bg={bg} />
+      </span>
     </div>
   );
 }
 
-function MenuView({ onSelect, onRefresh }: { onSelect: () => void; onRefresh: () => void }) {
-  const items = [
-    { label: 'Now Playing', onClick: onSelect },
-    { label: 'Refresh', onClick: onRefresh },
-    { label: 'Source: Spotify', onClick: () => {} },
-    { label: 'About', onClick: () => {} },
-  ];
-  const [sel, setSel] = useState(0);
+function BatteryGlyph({ pct, bg }: { pct: number; bg: string }) {
+  const filled = Math.max(0, Math.min(12, Math.round((pct / 100) * 12)));
   return (
-    <div style={{ flex: 1, padding: 4, fontSize: 12, display: 'flex', flexDirection: 'column' }}>
-      {items.map((it, i) => (
-        <button
-          key={it.label}
-          onMouseEnter={() => setSel(i)}
-          onClick={it.onClick}
+    <span title={`${pct}%`} style={{ display: 'inline-flex', alignItems: 'center', marginLeft: 2 }}>
+      <span
+        style={{
+          display: 'inline-block',
+          border: `1px solid ${bg}`,
+          width: 14,
+          height: 7,
+          position: 'relative',
+        }}
+      >
+        <span
           style={{
-            textAlign: 'left',
-            padding: '2px 6px',
-            background: i === sel ? '#1a2410' : 'transparent',
-            color: i === sel ? '#c7d3b7' : '#1a2410',
-            fontFamily: 'var(--font-chicago)',
-            fontSize: 12,
-            border: 'none',
-            cursor: 'default',
-            display: 'flex',
-            justifyContent: 'space-between',
+            display: 'block',
+            height: '100%',
+            width: `${(filled / 12) * 100}%`,
+            background: bg,
+          }}
+        />
+      </span>
+      <span
+        style={{
+          display: 'inline-block',
+          width: 1,
+          height: 4,
+          background: bg,
+          marginLeft: 1,
+        }}
+      />
+    </span>
+  );
+}
+
+// ────────── Menu list ──────────
+
+function Menu({
+  items,
+  selected,
+  scrollTop,
+}: {
+  items: MenuItem[];
+  selected: number;
+  scrollTop: number;
+}) {
+  if (!items.length) {
+    return <div style={{ padding: 8, fontSize: 11, opacity: 0.7 }}>(empty)</div>;
+  }
+  const visible = items.slice(scrollTop, scrollTop + VISIBLE_ITEMS);
+  return (
+    <div style={{ flex: 1, padding: '2px 0', display: 'flex', flexDirection: 'column' }}>
+      {visible.map((item, i) => {
+        const realIdx = i + scrollTop;
+        const sel = realIdx === selected;
+        return (
+          <div
+            key={realIdx}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '1px 6px',
+              background: sel ? '#1a2410' : 'transparent',
+              color: sel ? '#c7d3b7' : '#1a2410',
+              fontFamily: 'var(--font-chicago)',
+              fontSize: 12,
+              lineHeight: 1.4,
+            }}
+          >
+            <span style={{ width: 8, textAlign: 'center' }}>{item.marker ?? ' '}</span>
+            <span
+              style={{
+                flex: 1,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {item.label}
+            </span>
+            {item.rightLabel && <span style={{ opacity: sel ? 1 : 0.7 }}>{item.rightLabel}</span>}
+          </div>
+        );
+      })}
+      <div style={{ flex: 1 }} />
+    </div>
+  );
+}
+
+// ────────── Now Playing ──────────
+
+function NowPlayingView({
+  track,
+  index,
+  currentTime,
+  duration,
+  status,
+  volume,
+  rating,
+  npMode,
+  fg,
+  bg,
+}: {
+  track: Track;
+  index: number;
+  currentTime: number;
+  duration: number;
+  status: 'idle' | 'loading' | 'ready' | 'error';
+  volume: number;
+  rating: number;
+  npMode: NpMode;
+  fg: string;
+  bg: string;
+}) {
+  const pct = duration > 0 ? currentTime / duration : 0;
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 8, gap: 6, minHeight: 0 }}>
+      <div style={{ display: 'flex', gap: 8, flex: 1, minHeight: 0 }}>
+        <div
+          style={{
+            width: 54,
+            height: 54,
+            flexShrink: 0,
+            border: `1px solid ${fg}`,
+            background: fg,
+            overflow: 'hidden',
           }}
         >
-          <span>{it.label}</span>
-          <span>{i === sel ? '▶' : ''}</span>
-        </button>
-      ))}
+          {track.cover ? (
+            <img
+              src={track.cover}
+              alt=""
+              width={54}
+              height={54}
+              style={{
+                width: 54,
+                height: 54,
+                display: 'block',
+                filter: 'grayscale(1) contrast(1.15) brightness(1.05)',
+                opacity: 0.95,
+              }}
+            />
+          ) : null}
+        </div>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', fontSize: 12, lineHeight: 1.15 }}>
+          <Truncate text={track.title} bold />
+          <Truncate text={track.artist} dim />
+          <Truncate text={track.album} dim />
+          <div style={{ flex: 1 }} />
+          <div style={{ fontSize: 10, opacity: 0.75 }}>
+            Track {index + 1} of {PLAYLIST.length}
+            {status === 'loading' && ' · loading…'}
+            {status === 'error' && ' · playback error'}
+          </div>
+        </div>
+      </div>
+
+      <NpControlStrip
+        npMode={npMode}
+        currentTime={currentTime}
+        duration={duration}
+        pct={pct}
+        volume={volume}
+        rating={rating}
+        fg={fg}
+        bg={bg}
+      />
     </div>
   );
 }
 
-function Centered({ children }: { children: React.ReactNode }) {
+function NpControlStrip({
+  npMode,
+  currentTime,
+  duration,
+  pct,
+  volume,
+  rating,
+  fg,
+  bg,
+}: {
+  npMode: NpMode;
+  currentTime: number;
+  duration: number;
+  pct: number;
+  volume: number;
+  rating: number;
+  fg: string;
+  bg: string;
+}) {
+  if (npMode === 'volume') {
+    return <Bar label="Volume" fillPct={volume} fg={fg} bg={bg} rightLabel={`${volume}`} />;
+  }
+  if (npMode === 'scrub') {
+    return (
+      <Bar
+        label={fmtTime(currentTime)}
+        fillPct={pct * 100}
+        fg={fg}
+        bg={bg}
+        rightLabel={`-${fmtTime(Math.max(0, duration - currentTime))}`}
+        highlight
+      />
+    );
+  }
+  if (npMode === 'rating') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ fontSize: 11 }}>Rating</div>
+        <div style={{ flex: 1, fontFamily: 'var(--font-monaco)', fontSize: 18, lineHeight: 1, letterSpacing: 2 }}>
+          {'★'.repeat(rating) + '☆'.repeat(5 - rating)}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <div style={{ height: 6, background: fg, position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 1, bottom: 1, left: 1, right: 1, background: bg }} />
+        <div
+          style={{
+            position: 'absolute',
+            top: 1,
+            bottom: 1,
+            left: 1,
+            width: `calc(${pct * 100}% - 2px)`,
+            maxWidth: 'calc(100% - 2px)',
+            background: fg,
+            transition: 'width 200ms linear',
+          }}
+        />
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: 10,
+          fontFamily: 'var(--font-monaco)',
+          marginTop: 2,
+          opacity: 0.85,
+        }}
+      >
+        <span>{fmtTime(currentTime)}</span>
+        <span>-{fmtTime(Math.max(0, duration - currentTime))}</span>
+      </div>
+    </div>
+  );
+}
+
+function Bar({
+  label,
+  fillPct,
+  fg,
+  bg,
+  rightLabel,
+  highlight,
+}: {
+  label: string;
+  fillPct: number;
+  fg: string;
+  bg: string;
+  rightLabel?: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: 10,
+          fontFamily: 'var(--font-monaco)',
+          marginBottom: 2,
+        }}
+      >
+        <span>{label}</span>
+        {rightLabel && <span>{rightLabel}</span>}
+      </div>
+      <div style={{ height: highlight ? 8 : 6, background: fg, position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 1, bottom: 1, left: 1, right: 1, background: bg }} />
+        <div
+          style={{
+            position: 'absolute',
+            top: 1,
+            bottom: 1,
+            left: 1,
+            width: `calc(${Math.max(0, Math.min(100, fillPct))}% - 2px)`,
+            maxWidth: 'calc(100% - 2px)',
+            background: fg,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ────────── About / Notes ──────────
+
+function AboutView({ variant }: { variant?: string }) {
+  if (variant === 'notes') {
+    return (
+      <div style={{ flex: 1, overflow: 'auto', padding: 8, fontSize: 11, lineHeight: 1.45 }}>
+        <div style={{ fontWeight: 700, marginBottom: 4 }}>Notes from Akhilesh</div>
+        <p>
+          This iPod runs on real audio from archive.org and a small click-wheel rotation handler.
+          Scroll the wheel to move through menus. Tap the center button while on Now Playing to
+          cycle through scrub, rating, and volume modes.
+        </p>
+        <p style={{ marginTop: 6 }}>
+          Drop your own MP3s into <code>public/audio/</code> and reference them in{' '}
+          <code>PLAYLIST</code> in <code>src/lib/music.ts</code>.
+        </p>
+      </div>
+    );
+  }
+  if (variant === 'coverflow-soon') {
+    return (
+      <div style={{ flex: 1, padding: 8, fontSize: 11, lineHeight: 1.45 }}>
+        <div style={{ fontWeight: 700 }}>Cover Flow</div>
+        <p>Coming in the next firmware update.</p>
+      </div>
+    );
+  }
+  return (
+    <div style={{ flex: 1, overflow: 'auto', padding: 8, fontSize: 11, lineHeight: 1.4 }}>
+      <Row k="Name" v="akhileshw's iPod" />
+      <Row k="Songs" v={String(PLAYLIST.length)} />
+      <Row k="Artists" v={String(ARTISTS.length)} />
+      <Row k="Albums" v={String(ALBUMS.length)} />
+      <Row k="Capacity" v="160 GB" />
+      <Row k="Available" v="142.3 GB" />
+      <Row k="Version" v="1.3 (akhilesh)" />
+      <Row k="S/N" v="9C1A23K7QZ" />
+      <Row k="Model" v="MA665LL" />
+    </div>
+  );
+}
+
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        padding: '1px 0',
+        borderBottom: '1px dotted rgba(26,36,16,0.25)',
+      }}
+    >
+      <span>{k}</span>
+      <span style={{ opacity: 0.85 }}>{v}</span>
+    </div>
+  );
+}
+
+// ────────── Clock ──────────
+
+function ClockView({ now, fg, bg }: { now: Date; fg: string; bg: string }) {
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
   return (
     <div
       style={{
         flex: 1,
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: 12,
-        opacity: 0.75,
+        gap: 6,
       }}
     >
-      {children}
+      <div
+        style={{
+          fontFamily: 'var(--font-monaco)',
+          fontSize: 36,
+          lineHeight: 1,
+          color: fg,
+          background: bg,
+        }}
+      >
+        {hh}:{mm}
+      </div>
+      <div style={{ fontFamily: 'var(--font-monaco)', fontSize: 12, opacity: 0.7 }}>{ss}</div>
+      <div style={{ fontSize: 11, marginTop: 4 }}>{now.toDateString()}</div>
     </div>
   );
 }
 
-function Marquee({ text, bold, dim }: { text: string; bold?: boolean; dim?: boolean }) {
-  if (!text) return <div style={{ height: 14 }} />;
+function Truncate({ text, bold, dim }: { text: string; bold?: boolean; dim?: boolean }) {
   return (
     <div
+      title={text}
       style={{
         whiteSpace: 'nowrap',
         overflow: 'hidden',
@@ -287,57 +1032,185 @@ function Marquee({ text, bold, dim }: { text: string; bold?: boolean; dim?: bool
         opacity: dim ? 0.78 : 1,
         fontSize: 12,
       }}
-      title={text}
     >
       {text}
     </div>
   );
 }
 
+function fmtTime(secs: number): string {
+  if (!Number.isFinite(secs) || secs < 0) return '0:00';
+  const s = Math.floor(secs);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// ────────── Click wheel ──────────
+
+const ROTATE_STEP_DEG = 18;
+const TAP_MAX_DEG = 9;
+
 function ClickWheel({
+  onScroll,
+  onCenter,
   onMenu,
+  onPlayPause,
   onPrev,
   onNext,
-  onPlay,
-  onCenter,
 }: {
+  onScroll: (dir: 1 | -1) => void;
+  onCenter: () => void;
   onMenu: () => void;
+  onPlayPause: () => void;
   onPrev: () => void;
   onNext: () => void;
-  onPlay: () => void;
-  onCenter: () => void;
 }) {
+  const ringRef = useRef<HTMLDivElement>(null);
+  const stateRef = useRef({
+    active: false,
+    lastAngle: 0,
+    accum: 0,
+    totalAbs: 0,
+    startAngle: 0,
+  });
+  const wheelAccumRef = useRef(0);
+
+  const tapButton = (angle: number): 'menu' | 'prev' | 'next' | 'play' => {
+    if (angle >= -135 && angle < -45) return 'menu';
+    if (angle >= -45 && angle < 45) return 'next';
+    if (angle >= 45 && angle < 135) return 'play';
+    return 'prev';
+  };
+
+  const fireTap = (which: 'menu' | 'prev' | 'next' | 'play') => {
+    playClick();
+    if (which === 'menu') onMenu();
+    else if (which === 'prev') onPrev();
+    else if (which === 'next') onNext();
+    else onPlayPause();
+  };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const ring = ringRef.current;
+    if (!ring) return;
+    const rect = ring.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = e.clientX - cx;
+    const dy = e.clientY - cy;
+    const r = Math.sqrt(dx * dx + dy * dy);
+    const outerR = rect.width / 2;
+    const innerR = outerR * 0.36;
+    if (r < innerR || r > outerR + 4) return;
+    e.preventDefault();
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    const a = (Math.atan2(dy, dx) * 180) / Math.PI;
+    stateRef.current = {
+      active: true,
+      lastAngle: a,
+      accum: 0,
+      totalAbs: 0,
+      startAngle: a,
+    };
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const s = stateRef.current;
+    if (!s.active) return;
+    const ring = ringRef.current;
+    if (!ring) return;
+    const rect = ring.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const a = (Math.atan2(e.clientY - cy, e.clientX - cx) * 180) / Math.PI;
+    let d = a - s.lastAngle;
+    while (d > 180) d -= 360;
+    while (d < -180) d += 360;
+    s.accum += d;
+    s.totalAbs += Math.abs(d);
+    s.lastAngle = a;
+    while (s.accum >= ROTATE_STEP_DEG) {
+      onScroll(1);
+      s.accum -= ROTATE_STEP_DEG;
+    }
+    while (s.accum <= -ROTATE_STEP_DEG) {
+      onScroll(-1);
+      s.accum += ROTATE_STEP_DEG;
+    }
+  };
+
+  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const s = stateRef.current;
+    if (!s.active) return;
+    s.active = false;
+    try {
+      (e.target as Element).releasePointerCapture?.(e.pointerId);
+    } catch {}
+    if (s.totalAbs < TAP_MAX_DEG) {
+      fireTap(tapButton(s.startAngle));
+    }
+  };
+
+  const onWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    wheelAccumRef.current += e.deltaY;
+    const step = 28;
+    while (wheelAccumRef.current >= step) {
+      onScroll(1);
+      wheelAccumRef.current -= step;
+    }
+    while (wheelAccumRef.current <= -step) {
+      onScroll(-1);
+      wheelAccumRef.current += step;
+    }
+  };
+
+  const labelStyle: CSSProperties = {
+    position: 'absolute',
+    color: 'var(--plat-700)',
+    fontFamily: 'var(--font-chicago)',
+    fontSize: 11,
+    letterSpacing: '0.05em',
+    pointerEvents: 'none',
+    userSelect: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  };
+
   return (
-    <div
-      style={{
-        position: 'relative',
-        width: 180,
-        height: 180,
-      }}
-    >
+    <div style={{ position: 'relative', width: 196, height: 196 }}>
       <div
+        ref={ringRef}
         className="chrome-outset"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onWheel={onWheel}
         style={{
           position: 'absolute',
           inset: 0,
           borderRadius: '50%',
           background: 'var(--plat-100)',
+          touchAction: 'none',
+          cursor: 'pointer',
         }}
       />
-      <WheelLabel pos="top" onClick={onMenu}>
-        MENU
-      </WheelLabel>
-      <WheelLabel pos="left" onClick={onPrev}>
+      <span style={{ ...labelStyle, top: 8, left: '50%', transform: 'translateX(-50%)' }}>MENU</span>
+      <span style={{ ...labelStyle, left: 10, top: '50%', transform: 'translateY(-50%)' }}>
         <Glyph kind="prev" />
-      </WheelLabel>
-      <WheelLabel pos="right" onClick={onNext}>
+      </span>
+      <span style={{ ...labelStyle, right: 10, top: '50%', transform: 'translateY(-50%)' }}>
         <Glyph kind="next" />
-      </WheelLabel>
-      <WheelLabel pos="bottom" onClick={onPlay}>
+      </span>
+      <span style={{ ...labelStyle, bottom: 8, left: '50%', transform: 'translateX(-50%)' }}>
         <Glyph kind="play" />
-      </WheelLabel>
+      </span>
       <button
-        onClick={onCenter}
+        onClick={() => {
+          playClick();
+          onCenter();
+        }}
         aria-label="Select"
         className="chrome-outset"
         style={{
@@ -345,8 +1218,8 @@ function ClickWheel({
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          width: 64,
-          height: 64,
+          width: 68,
+          height: 68,
           borderRadius: '50%',
           background: 'var(--plat-white)',
           cursor: 'default',
@@ -354,45 +1227,6 @@ function ClickWheel({
         }}
       />
     </div>
-  );
-}
-
-function WheelLabel({
-  pos,
-  onClick,
-  children,
-}: {
-  pos: 'top' | 'left' | 'right' | 'bottom';
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  const positions: Record<typeof pos, React.CSSProperties> = {
-    top: { top: 10, left: '50%', transform: 'translateX(-50%)' },
-    bottom: { bottom: 10, left: '50%', transform: 'translateX(-50%)' },
-    left: { left: 12, top: '50%', transform: 'translateY(-50%)' },
-    right: { right: 12, top: '50%', transform: 'translateY(-50%)' },
-  };
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        position: 'absolute',
-        ...positions[pos],
-        background: 'transparent',
-        border: 'none',
-        padding: 4,
-        fontFamily: 'var(--font-chicago)',
-        fontSize: 11,
-        color: 'var(--plat-700)',
-        cursor: 'default',
-        letterSpacing: '0.05em',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -438,14 +1272,4 @@ function Triangle({ dir }: { dir: 'left' | 'right' }) {
       }}
     />
   );
-}
-
-function relativeTime(iso: string, _tick: number): string {
-  const then = new Date(iso).getTime();
-  const now = Date.now();
-  const diff = Math.max(0, Math.floor((now - then) / 1000));
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
 }

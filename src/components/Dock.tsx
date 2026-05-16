@@ -10,7 +10,7 @@ export default function Dock() {
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9998]">
       <div className="dock-bar flex items-center gap-1 px-1 py-1">
-        {APPS.map(app => (
+        {APPS.filter(app => !app.hideFromDock).map(app => (
           <DockIcon
             key={app.id}
             icon={app.icon}

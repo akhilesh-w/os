@@ -1,117 +1,147 @@
-import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, useMemo, type KeyboardEvent } from 'react';
+import { loadVFS, saveVFS, clearStoredVFS, type VFS } from '../lib/vfs';
+import { buildSeedVFS, SEED_VERSION, ensureCwdValid } from '../lib/vfsSeed';
+import { buildPrompt, complete, makeShell, runLine, type ShellState } from '../lib/shell';
 
-interface HistoryEntry {
-  type: 'input' | 'output';
-  content: string;
+interface Block {
+  prompt: string;
+  cmd: string;
+  output: string;
 }
 
-const COMMANDS: Record<string, (args: string[]) => string> = {
-  help: () => `Available commands:
-  about      Learn about Akhilesh
-  projects   View projects
-  contact    Get in touch
-  whoami     Print user
-  ls         List directory
-  pwd        Print working directory
-  date       Print current date
-  clear      Clear the terminal
-  help       Show this help`,
+function bootShell(): ShellState {
+  const stored = loadVFS(SEED_VERSION);
+  let vfs: VFS;
+  if (stored) {
+    vfs = { root: stored.root, cwd: stored.cwd, home: '/Users/akhileshw' };
+    ensureCwdValid(vfs);
+  } else {
+    vfs = buildSeedVFS();
+  }
+  return makeShell(vfs);
+}
 
-  about: () => `Akhilesh Waghmare
-=================
-Coder, storyteller, explorer of ideas —
-stitching together software, stories,
-systems, and curiosity.
-
-Currently building things that matter.`,
-
-  projects: () => `Projects:
-[1] akhileshw.xyz          Personal site (Next.js)
-[2] dotfiles               Arch Linux setup
-[3] log                    Canvas for thoughts
-[4] sites                  Garden of random projects
-[5] gemini-design-plugin   Gemini CLI UI extension
-[6] epoch                  Goal/task tracking app
-
--> github.com/akhilesh-w`,
-
-  contact: () => `Email    hey@akhileshw.xyz
-GitHub   github.com/akhilesh-w
-Twitter  @theakhileshw`,
-
-  whoami: () => `akhileshw`,
-  ls: () => `about.txt   projects/   contact.txt   README.md`,
-  pwd: () => `/home/akhileshw`,
-  date: () => new Date().toString(),
-  echo: (args) => args.join(' '),
-};
-
-const WELCOME = `Welcome to Terminal.
-Macintosh 7.5.3 — bash 1.0
-Type 'help' for available commands.
+const BANNER = `Last login: ${new Date().toString().slice(0, 24)} on ttys000
+Welcome to Macintosh — bash 1.0 (akhilesh build)
+Type \`help\` for built-ins, or \`ls\` to start exploring.
 `;
 
 export default function Terminal() {
-  const [history, setHistory] = useState<HistoryEntry[]>([{ type: 'output', content: WELCOME }]);
+  const shellRef = useRef<ShellState | null>(null);
+  if (shellRef.current === null) shellRef.current = bootShell();
+  const shell = shellRef.current;
+
+  const [blocks, setBlocks] = useState<Block[]>([]);
   const [input, setInput] = useState('');
-  const [cmdHistory, setCmdHistory] = useState<string[]>([]);
-  const [cmdHistoryIdx, setCmdHistoryIdx] = useState(-1);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const [historyIdx, setHistoryIdx] = useState(-1);
+  const [completionPreview, setCompletionPreview] = useState<string>('');
+
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const prompt = useMemo(() => buildPrompt(shell), [shell, blocks]);
+
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [history]);
+    const el = scrollerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [blocks, completionPreview]);
 
-  const handleSubmit = () => {
-    const cmd = input.trim();
-    if (!cmd) return;
-    const newHistory: HistoryEntry[] = [...history, { type: 'input', content: cmd }];
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
-    if (cmd === 'clear') {
-      setHistory([{ type: 'output', content: WELCOME }]);
-      setInput('');
-      setCmdHistory(prev => [cmd, ...prev]);
-      setCmdHistoryIdx(-1);
+  const persist = () => saveVFS(shell.vfs, SEED_VERSION);
+
+  const runCommand = (cmd: string) => {
+    const promptStr = buildPrompt(shell);
+    if (!cmd.trim()) {
+      setBlocks(b => [...b, { prompt: promptStr, cmd: '', output: '' }]);
+      return;
+    }
+    let output = runLine(cmd, shell);
+
+    // Special-case: clear → wipe scrollback
+    if (output.includes('\x0c')) {
+      setBlocks([]);
       return;
     }
 
-    const [cmdName, ...args] = cmd.split(/\s+/);
-    const handler = COMMANDS[cmdName.toLowerCase()];
-    const output = handler ? handler(args) : `bash: ${cmdName}: command not found`;
-    if (output) newHistory.push({ type: 'output', content: output });
+    // Special-case: reset → reseed VFS
+    if (shell.env.__RESET__) {
+      delete shell.env.__RESET__;
+      clearStoredVFS();
+      shell.vfs = buildSeedVFS();
+      output += 'Reseeded ~/site from build.\n';
+    }
 
-    setHistory(newHistory);
-    setInput('');
-    setCmdHistory(prev => [cmd, ...prev]);
-    setCmdHistoryIdx(-1);
+    setBlocks(b => [...b, { prompt: promptStr, cmd, output }]);
+    persist();
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') return handleSubmit();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const cmd = input;
+      setInput('');
+      setHistoryIdx(-1);
+      setCompletionPreview('');
+      runCommand(cmd);
+      return;
+    }
     if (e.key === 'ArrowUp') {
       e.preventDefault();
-      const idx = Math.min(cmdHistoryIdx + 1, cmdHistory.length - 1);
-      setCmdHistoryIdx(idx);
-      setInput(cmdHistory[idx] || '');
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      const idx = Math.max(cmdHistoryIdx - 1, -1);
-      setCmdHistoryIdx(idx);
-      setInput(idx === -1 ? '' : cmdHistory[idx]);
-    } else if (e.key === 'Tab') {
-      e.preventDefault();
-      const match = Object.keys(COMMANDS).find(k => k.startsWith(input));
-      if (match) setInput(match);
+      const h = shell.history;
+      if (!h.length) return;
+      const next = Math.min(historyIdx + 1, h.length - 1);
+      setHistoryIdx(next);
+      setInput(h[h.length - 1 - next] ?? '');
+      return;
     }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const h = shell.history;
+      const next = Math.max(historyIdx - 1, -1);
+      setHistoryIdx(next);
+      setInput(next === -1 ? '' : h[h.length - 1 - next] ?? '');
+      return;
+    }
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const res = complete(input, shell);
+      if (res.matches.length === 1) {
+        setInput(res.replaced + (res.replaced.endsWith('/') ? '' : ' '));
+        setCompletionPreview('');
+      } else if (res.matches.length > 1) {
+        setInput(res.replaced);
+        setCompletionPreview(res.matches.join('  '));
+      }
+      return;
+    }
+    if (e.key === 'l' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      setBlocks([]);
+      return;
+    }
+    if (e.key === 'c' && e.ctrlKey) {
+      e.preventDefault();
+      setBlocks(b => [...b, { prompt: buildPrompt(shell), cmd: input + '^C', output: '' }]);
+      setInput('');
+      return;
+    }
+    if (e.key === 'u' && e.ctrlKey) {
+      e.preventDefault();
+      setInput('');
+      return;
+    }
+    setCompletionPreview('');
   };
 
   return (
     <div
       className="h-full flex flex-col cursor-text"
       style={{
-        background: '#000000',
-        color: '#33ff66',
+        background: '#1d1f21',
+        color: '#d8d8d8',
         fontFamily: 'var(--font-monaco)',
         fontSize: 18,
         lineHeight: 1.1,
@@ -119,32 +149,58 @@ export default function Terminal() {
       }}
       onClick={() => inputRef.current?.focus()}
     >
-      <div className="flex-1 overflow-auto">
-        {history.map((entry, i) =>
-          entry.type === 'input' ? (
-            <div key={i}>
-              <span style={{ color: '#33ff66' }}>akhileshw % </span>
-              <span style={{ color: '#ffffff' }}>{entry.content}</span>
+      <div ref={scrollerRef} className="flex-1 overflow-auto">
+        <pre
+          style={{
+            whiteSpace: 'pre-wrap',
+            fontFamily: 'var(--font-monaco)',
+            fontSize: 18,
+            color: '#a8a8a8',
+            margin: 0,
+            marginBottom: 6,
+          }}
+        >
+          {BANNER}
+        </pre>
+
+        {blocks.map((b, i) => (
+          <div key={i}>
+            <div>
+              <span style={{ color: '#a8a8a8' }}>{b.prompt}</span>
+              <span style={{ color: '#ffffff' }}>{b.cmd}</span>
             </div>
-          ) : (
-            <pre
-              key={i}
-              style={{
-                whiteSpace: 'pre-wrap',
-                fontFamily: 'var(--font-monaco)',
-                fontSize: 18,
-                color: '#33ff66',
-                margin: 0,
-                marginBottom: 6,
-              }}
-            >
-              {entry.content}
-            </pre>
-          )
+            {b.output && (
+              <pre
+                style={{
+                  whiteSpace: 'pre-wrap',
+                  fontFamily: 'var(--font-monaco)',
+                  fontSize: 18,
+                  color: '#d8d8d8',
+                  margin: 0,
+                }}
+              >
+                {b.output}
+              </pre>
+            )}
+          </div>
+        ))}
+
+        {completionPreview && (
+          <pre
+            style={{
+              whiteSpace: 'pre-wrap',
+              fontFamily: 'var(--font-monaco)',
+              fontSize: 18,
+              color: '#888888',
+              margin: 0,
+            }}
+          >
+            {completionPreview}
+          </pre>
         )}
 
         <div className="flex">
-          <span style={{ color: '#33ff66' }}>akhileshw % </span>
+          <span style={{ color: '#a8a8a8', whiteSpace: 'pre' }}>{prompt}</span>
           <input
             ref={inputRef}
             autoFocus
@@ -159,11 +215,10 @@ export default function Terminal() {
               color: '#ffffff',
               fontFamily: 'var(--font-monaco)',
               fontSize: 18,
-              caretColor: '#33ff66',
+              caretColor: '#d8d8d8',
             }}
           />
         </div>
-        <div ref={bottomRef} />
       </div>
     </div>
   );

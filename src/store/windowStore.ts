@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { WindowState } from '../types';
 import { APPS_BY_ID } from '../apps/registry';
+import { playOpen, playClose } from '../lib/sounds';
 
 interface WindowStore {
   windows: WindowState[];
@@ -13,6 +14,7 @@ interface WindowStore {
   focusWindow: (id: string) => void;
   updateWindowPosition: (id: string, x: number, y: number) => void;
   updateWindowSize: (id: string, width: number, height: number) => void;
+  setWindowTitle: (id: string, title: string) => void;
 }
 
 let windowIdCounter = 0;
@@ -64,13 +66,16 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
       maxZIndex: state.maxZIndex + 1,
       activeWindowId: newWindow.id,
     }));
+    playOpen();
   },
 
   closeWindow: (id) => {
+    const existed = get().windows.some(w => w.id === id);
     set(state => ({
       windows: state.windows.filter(w => w.id !== id),
       activeWindowId: state.activeWindowId === id ? null : state.activeWindowId,
     }));
+    if (existed) playClose();
   },
 
   minimizeWindow: (id) => {
@@ -112,6 +117,14 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
     set(state => ({
       windows: state.windows.map(w =>
         w.id === id ? { ...w, width, height } : w
+      ),
+    }));
+  },
+
+  setWindowTitle: (id, title) => {
+    set(state => ({
+      windows: state.windows.map(w =>
+        w.id === id ? { ...w, title } : w
       ),
     }));
   },

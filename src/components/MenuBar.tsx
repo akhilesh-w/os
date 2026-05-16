@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useWindowStore } from '../store/windowStore';
 import { useDesktopStore } from '../store/desktopStore';
+import { useSoundStore } from '../store/soundStore';
+import { playBeep, playStartup } from '../lib/sounds';
 import { APPS_BY_ID } from '../apps/registry';
 import type { MenuDefinition } from '../types';
 import MenuBarDropdown from './MenuBarDropdown';
@@ -42,6 +44,8 @@ export default function MenuBar() {
   const openWindow = useWindowStore(s => s.openWindow);
   const closeWindow = useWindowStore(s => s.closeWindow);
   const resetDesktopPositions = useDesktopStore(s => s.resetPositions);
+  const soundEnabled = useSoundStore(s => s.enabled);
+  const toggleSound = useSoundStore(s => s.toggle);
 
   useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 30_000);
@@ -63,10 +67,14 @@ export default function MenuBar() {
       items: [
         { type: 'item', label: 'About This Macintosh', onSelect: () => openWindow('about') },
         { type: 'separator' },
+        { type: 'item', label: 'Launcher', onSelect: () => openWindow('launcher') },
         { type: 'item', label: 'Calculator', disabled: true },
         { type: 'item', label: 'Chooser', disabled: true },
-        { type: 'item', label: 'Control Panels', disabled: true },
+        { type: 'item', label: 'Control Panels', onSelect: () => openWindow('controls') },
         { type: 'item', label: 'Stickies', disabled: true },
+        { type: 'separator' },
+        { type: 'item', label: 'Sound', checked: soundEnabled, onSelect: toggleSound },
+        { type: 'item', label: 'Startup Chime', onSelect: playStartup },
         { type: 'separator' },
         { type: 'item', label: 'Sleep', disabled: true },
         { type: 'item', label: 'Restart', onSelect: () => window.location.reload() },
@@ -84,7 +92,7 @@ export default function MenuBar() {
           disabled: activeApp?.id === 'about',
         },
         { type: 'separator' },
-        { type: 'item', label: 'Preferences…', disabled: true },
+        { type: 'item', label: 'Preferences…', onSelect: () => openWindow('controls') },
         { type: 'separator' },
         {
           type: 'item',
@@ -149,6 +157,8 @@ export default function MenuBar() {
       label: 'Special',
       items: [
         { type: 'item', label: 'Empty Trash…', disabled: true },
+        { type: 'separator' },
+        { type: 'item', label: 'Beep', onSelect: playBeep },
         { type: 'separator' },
         { type: 'item', label: 'Eject', disabled: true },
         { type: 'item', label: 'Restart', onSelect: () => window.location.reload() },

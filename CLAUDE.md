@@ -78,7 +78,7 @@ App.tsx
 
 ### App registry (`src/apps/registry.ts`)
 
-Single source of truth for every app: `id`, `name`, `icon` (refers to a PixelIcon name, not an emoji), `defaultWidth`, `defaultHeight`, `component`, optional `externalUrl`.
+Single source of truth for every app: `id`, `name`, `icon` (refers to a PixelIcon name, not an emoji), `defaultWidth`, `defaultHeight`, `component`, optional `externalUrl`, optional `hideFromDock`, optional `hideFromLauncher`.
 
 To add a new app:
 
@@ -86,11 +86,43 @@ To add a new app:
 2. Add an entry to `APPS` in `registry.ts`.
 3. If you need a new icon, add a glyph to `ICONS` in `src/components/PixelIcon.tsx` — drawn as `<rect>` elements on a 16×16 grid for pixel-perfect crispness.
 
-That's it. Dock, switcher, MenuBar pick it up automatically.
+That's it. **Launcher**, dock, switcher, and MenuBar pick it up automatically. Use `hideFromDock: true` for apps that shouldn't clutter the dock (e.g. About This Macintosh) — they'll still appear in the Launcher. Use `hideFromLauncher: true` for the Launcher itself (and any other meta-app you don't want surfaced in the grid).
+
+### Finder (`src/apps/Finder.tsx`)
+
+Classic Mac OS Finder with a left **sidebar** (DEVICES + FAVORITES sections) and a main pane that toggles between **icon view** (grid of pixel folders) and **list view** (Name / Size / Kind columns). Toolbar shows the view-mode toggle, the current location label, and a "Find…" filter. Status bar at the bottom shows item count + total size + a faux "282K used · 9.9 MB available" string for flavor.
+
+Data model is **location-based, not tree-based** — each sidebar entry maps to a `Location` with a `getEntries()` function. Folders in the main pane carry a `navigateTo: locationId` and double-clicking them switches the active location (the sidebar selection updates too). Items can also carry `url` (open external) or `appId` (open app). This keeps the model flat and dodges directory recursion entirely.
+
+Current locations: `mac-hd`, `desktop`, `projects`, `applications` (auto-derived from `APPS`), `documents`, `trash`. Adding a new location = adding one entry to `LOCATIONS` in `Finder.tsx`. Adding a new "file" inside a location = adding one entry to the relevant array (`PROJECTS`, `DOCUMENTS`, etc.).
+
+Single-click selects (selection-blue background + inverted icon), double-click opens/navigates. Clicking empty space deselects. Selection state is local to the Finder window (not in any store) — multi-window Finders will each have their own selection.
+
+### Launcher (`src/apps/Launcher.tsx`)
+
+The Mac OS 8 "Launcher" control panel — a grid of chrome-outset tile buttons, one per app (filtered by `hideFromLauncher`). Includes a live "Find…" filter in the header. Opens from the dock, the Apple menu → Launcher, or programmatically with `openWindow('launcher')`. As new apps get added, they show up here without any further wiring; the dock stays curated.
 
 ### PixelIcon (`src/components/PixelIcon.tsx`)
 
-Inline-SVG icon set drawn on a 16×16 grid. Uses `shape-rendering="crispEdges"` and `image-rendering: pixelated` so they stay sharp at any size. Current icons: `finder`, `terminal`, `about`, `music`, `github`, `folder`, `document`, `trash`, `macHD`.
+Inline-SVG icon set drawn on a 16×16 grid. Uses `shape-rendering="crispEdges"` and `image-rendering: pixelated` so they stay sharp at any size. Current icons: `finder`, `terminal`, `about`, `music`, `controls`, `launcher`, `github`, `folder`, `document`, `trash`, `macHD`, `speaker`.
+
+### Sound (`src/lib/sounds.ts` + `src/store/soundStore.ts`)
+
+All system sounds are **synthesized at runtime via the Web Audio API** — no sound files shipped. The library exposes `playClick`, `playBeep`, `playOpen`, `playClose`, `playStartup`. Each function lazily creates a single shared `AudioContext` and bails out when the persisted `soundStore.enabled` flag is false.
+
+Triggers:
+
+| Sound | Where |
+|---|---|
+| `playOpen` | `windowStore.openWindow` — only when a new window is created (not when focusing an existing one) |
+| `playClose` | `windowStore.closeWindow` — only if the window existed |
+| `playClick` | `DockIcon` onClick |
+| `playBeep` | Special → Beep menu item |
+| `playStartup` | Apple → Startup Chime menu item (browser autoplay policies block playing it on page load before any user gesture; the boot screen in TASKS #1 will fire it after the user clicks past the splash) |
+
+The Apple menu has a `Sound ✓` toggle that flips `soundStore.enabled`; the `checked` field on `MenuItem` renders the classic Mac ✓ glyph in front of the label. The store also exposes `volume` (0–100), and all sounds route through a single `master` GainNode that's updated on every play call — so a future Control Panels slider can just call `setVolume`. Persisted to localStorage under `os.akhileshw.xyz:sound:v2`.
+
+The synth functions are designed to be cheap and additive (multiple overlapping calls don't crash). They auto-disconnect when their oscillators stop.
 
 ### Menu bar (`src/components/MenuBar.tsx` + `MenuBarDropdown.tsx`)
 
@@ -142,7 +174,8 @@ src/
 ├── store/windowStore.ts  — Zustand: windows + actions
 ├── apps/
 │   ├── registry.ts       — central APPS list
-│   ├── Finder.tsx        — list view with pixel icons + status bar
+│   ├── Finder.tsx        — sidebar (FAVORITES/DEVICES), toolbar with icon/list toggle + search, navigable locations
+│   ├── Launcher.tsx      — Mac OS 8 Launcher: chrome-outset tile grid of all non-hidden apps
 │   ├── Terminal.tsx      — VT323, green-on-black, command history
 │   ├── About.tsx         — "About This Macintosh"-style identity card
 │   └── Music.tsx         — Music Box: pixel album art + chrome controls + playlist
