@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useWindowStore } from '../store/windowStore';
 import { useDesktopStore, type IconPosition } from '../store/desktopStore';
-import { useWallpaperStore, getWallpaper } from '../store/wallpaperStore';
+import { useWallpaperStore, getWallpaper, WALLPAPERS } from '../store/wallpaperStore';
 import { APPS_BY_ID } from '../apps/registry';
 import Window from './Window';
 import PixelIcon from './PixelIcon';
+import ContextMenu from './ContextMenu';
+import type { MenuItem } from '../types';
 
 type DesktopIcon =
   | { id: string; label: string; icon: string; opens: string }
@@ -49,10 +51,13 @@ export default function Desktop() {
   const openWindow = useWindowStore(s => s.openWindow);
   const positions = useDesktopStore(s => s.positions);
   const setPosition = useDesktopStore(s => s.setPosition);
+  const resetPositions = useDesktopStore(s => s.resetPositions);
   const wallpaperId = useWallpaperStore(s => s.currentId);
+  const setWallpaper = useWallpaperStore(s => s.setCurrent);
   const wallpaper = getWallpaper(wallpaperId);
 
   const [selected, setSelected] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [viewport, setViewport] = useState(() => ({
     w: typeof window !== 'undefined' ? window.innerWidth : 1280,
     h: typeof window !== 'undefined' ? window.innerHeight : 800,
@@ -116,12 +121,51 @@ export default function Desktop() {
     target.addEventListener('pointercancel', onUp);
   };
 
+  const contextItems: MenuItem[] = [
+    { type: 'item', label: 'New Folder', shortcut: '⌘⇧N', disabled: true },
+    { type: 'separator' },
+    {
+      type: 'item',
+      label: 'Get Info',
+      onSelect: () => openWindow('about'),
+    },
+    {
+      type: 'item',
+      label: 'Clean Up Desktop',
+      onSelect: resetPositions,
+    },
+    { type: 'separator' },
+    {
+      type: 'item',
+      label: 'Change Wallpaper…',
+      onSelect: () => openWindow('controls'),
+    },
+    ...WALLPAPERS.map(w => ({
+      type: 'item' as const,
+      label: '   ' + w.name,
+      checked: w.id === wallpaperId,
+      onSelect: () => setWallpaper(w.id),
+    })),
+    { type: 'separator' },
+    {
+      type: 'item',
+      label: 'About This Macintosh',
+      onSelect: () => openWindow('about'),
+    },
+  ];
+
   return (
     <div
       className="fixed inset-0 overflow-hidden"
       style={{ ...wallpaper.style, paddingTop: MENU_BAR_HEIGHT }}
       onMouseDown={e => {
         if (e.target === e.currentTarget) setSelected(null);
+      }}
+      onContextMenu={e => {
+        if (e.target !== e.currentTarget) return;
+        e.preventDefault();
+        setSelected(null);
+        setContextMenu({ x: e.clientX, y: e.clientY });
       }}
     >
       {DESKTOP_ICONS.map(icon => {
@@ -183,6 +227,15 @@ export default function Desktop() {
           );
         })}
       </AnimatePresence>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={contextItems}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 }
