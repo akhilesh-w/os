@@ -29,7 +29,7 @@ export default function Screensaver({ onDismiss }: Props) {
   useEffect(() => {
     let raf = 0;
     let x = 0.5, y = 0.5;
-    let vx = 0.0009, vy = 0.0006;
+    let vx = 0.00035, vy = 0.00024;
     let lastT = performance.now();
     const tick = (t: number) => {
       const dt = Math.min(60, t - lastT);
@@ -85,7 +85,7 @@ export default function Screensaver({ onDismiss }: Props) {
       ctx.lineWidth = 1;
       for (const s of stars) {
         s.pz = s.z;
-        s.z -= 0.006;
+        s.z -= 0.0022;
         if (s.z <= 0.01) {
           s.x = (Math.random() - 0.5) * 2;
           s.y = (Math.random() - 0.5) * 2;
