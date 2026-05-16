@@ -22,7 +22,7 @@ interface DesktopIcon {
 const DESKTOP_ICONS: DesktopIcon[] = [
   { id: 'hd', label: 'Macintosh HD', icon: 'macHD', opens: 'finder', params: { locationId: 'mac-hd' } },
   { id: 'projects', label: 'Projects', icon: 'folder-projects', opens: 'finder', params: { locationId: 'projects' } },
-  { id: 'readme', label: 'README', icon: 'document', opens: 'about' },
+  { id: 'readme', label: 'README', icon: 'document', opens: 'readme' },
   { id: 'trash', label: 'Trash', icon: 'trash', opens: 'finder', params: { locationId: 'trash' } },
 ];
 
