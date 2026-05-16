@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useWindowStore } from '../store/windowStore';
 import { useDesktopStore } from '../store/desktopStore';
 import { useSoundStore } from '../store/soundStore';
+import { useScreensaverStore } from '../store/screensaverStore';
 import { playBeep, playStartup } from '../lib/sounds';
 import { APPS_BY_ID } from '../apps/registry';
 import type { MenuDefinition } from '../types';
@@ -46,6 +47,7 @@ export default function MenuBar() {
   const resetDesktopPositions = useDesktopStore(s => s.resetPositions);
   const soundEnabled = useSoundStore(s => s.enabled);
   const toggleSound = useSoundStore(s => s.toggle);
+  const sleep = useScreensaverStore(s => s.setForceOn);
 
   useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 30_000);
@@ -76,7 +78,7 @@ export default function MenuBar() {
         { type: 'item', label: 'Sound', checked: soundEnabled, onSelect: toggleSound },
         { type: 'item', label: 'Startup Chime', onSelect: playStartup },
         { type: 'separator' },
-        { type: 'item', label: 'Sleep', disabled: true },
+        { type: 'item', label: 'Sleep', onSelect: () => sleep(true) },
         { type: 'item', label: 'Restart', onSelect: () => window.location.reload() },
         { type: 'item', label: 'Shut Down', disabled: true },
       ],
