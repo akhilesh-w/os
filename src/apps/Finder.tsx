@@ -5,6 +5,7 @@ import { useWindowStore } from '../store/windowStore';
 import { useWindowId } from '../components/Window';
 import { playClick } from '../lib/sounds';
 import { PLAYLIST } from '../lib/music';
+import { POSTS } from '../lib/posts';
 
 interface Entry {
   name: string;
@@ -14,6 +15,7 @@ interface Entry {
   navigateTo?: string;
   url?: string;
   appId?: string;
+  openParams?: Record<string, unknown>;
 }
 
 interface Location {
@@ -33,11 +35,14 @@ const PROJECTS: Entry[] = [
   { name: 'epoch', kind: 'app', size: '54K', icon: 'folder', url: 'https://github.com/akhilesh-w/epoch' },
 ];
 
-const DOCUMENTS: Entry[] = [
-  { name: 'README.txt', kind: 'document', size: '4K', icon: 'document' },
-  { name: 'TASKS.md', kind: 'document', size: '6K', icon: 'document' },
-  { name: 'Now.txt', kind: 'document', size: '1K', icon: 'document' },
-];
+const DOCUMENTS: Entry[] = POSTS.map(p => ({
+  name: `${p.title}.txt`,
+  kind: 'TextEdit document',
+  size: `${Math.max(1, Math.ceil(p.content.length / 1024))}K`,
+  icon: 'document',
+  appId: 'text-edit',
+  openParams: { windowKey: p.slug, slug: p.slug },
+}));
 
 const DESKTOP: Entry[] = [
   { name: 'Macintosh HD', kind: 'disk', size: '—', icon: 'macHD', navigateTo: 'mac-hd' },
@@ -142,7 +147,7 @@ export default function Finder() {
     playClick();
     if (entry.navigateTo) navigateTo(entry.navigateTo);
     else if (entry.url) window.open(entry.url, '_blank', 'noopener,noreferrer');
-    else if (entry.appId) openWindow(entry.appId);
+    else if (entry.appId) openWindow(entry.appId, entry.openParams);
   };
 
   const favorites = LOCATIONS.filter(l => l.section === 'favorites');
