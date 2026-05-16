@@ -4,7 +4,7 @@ Tasks to make the site match [ryos.ryo.lu](https://os.ryo.lu/), roughly in prior
 
 | # | Task | Description |
 |---|------|-------------|
-| 1 | Boot/login screen | Startup animation — Apple logo, progress bar, fade into desktop. First impression like ryOS. |
+| 1 | ~~Boot/login screen~~ ✓ | ~~Startup animation — Apple logo, progress bar, fade into desktop. First impression like ryOS.~~ Done — full-screen "Welcome to Macintosh" splash with a pixel-art Happy Mac, Chicago text, hatched progress bar, and a rotating tip. Click anywhere to dismiss; firing the dismiss plays `playStartup` (the user gesture unblocks the Web Audio chime) and fades out into the desktop. Rendered as an overlay in `App.tsx` via `AnimatePresence`. |
 | 2 | Authentic macOS Aqua window chrome | Brushed aluminum title bar, proper traffic light buttons (show × − + on hover), toolbar area, status bar, resize handle. |
 | 3 | ~~Menu bar dropdown menus~~ ✓ | ~~Clicking menu bar items opens real dropdowns. Each app registers its own items. Apple menu has About, Sleep, Shut Down.~~ Done — Apple / app-name / File / Edit / View / Special / Help with hover-to-switch, ✓ checkmarks on toggles, click-outside + Escape dismiss; ⌘W close + ⌘N new Finder. Per-app menu inherits the active window's name. |
 | 4 | Dock magnification & bounce | Proximity-based icon magnification on hover, bounce animation on launch, indicator dot for open apps, tooltip labels. |
