@@ -13,6 +13,8 @@ export interface WindowState {
   zIndex: number;
   /** Cursor target captured when the window was minimized — used by the genie animation to fly toward the dock icon. Viewport coordinates of the icon center. */
   minimizeTarget?: { x: number; y: number };
+  /** Per-window opaque params from the launcher. Apps read these to set initial state (e.g. Finder's initial location). Re-set on each openWindow() call so re-opens trigger effects. */
+  params?: Record<string, unknown>;
 }
 
 export type MenuItem =

@@ -97,10 +97,29 @@ export default function Finder() {
   const openWindow = useWindowStore(s => s.openWindow);
   const setWindowTitle = useWindowStore(s => s.setWindowTitle);
   const windowId = useWindowId();
-  const [currentLocId, setCurrentLocId] = useState<string>('mac-hd');
+  const params = useWindowStore(s =>
+    windowId ? s.windows.find(w => w.id === windowId)?.params : undefined
+  );
+  const initialLocId =
+    typeof params?.locationId === 'string' && LOCATIONS.some(l => l.id === params.locationId)
+      ? (params.locationId as string)
+      : 'mac-hd';
+
+  const [currentLocId, setCurrentLocId] = useState<string>(initialLocId);
   const [viewMode, setViewMode] = useState<'icons' | 'list'>('icons');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
+
+  // When the launcher hands us a (possibly new) locationId — including on a
+  // re-open of an already-mounted Finder — navigate to it.
+  useEffect(() => {
+    const loc = params?.locationId;
+    if (typeof loc === 'string' && LOCATIONS.some(l => l.id === loc)) {
+      setCurrentLocId(loc);
+      setSelected(null);
+      setQuery('');
+    }
+  }, [params]);
 
   const location = LOCATIONS.find(l => l.id === currentLocId) ?? LOCATIONS[0];
   const entries = useMemo(() => {

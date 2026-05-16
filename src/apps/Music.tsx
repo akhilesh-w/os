@@ -94,7 +94,14 @@ export default function Music() {
     new Array(PLAYLIST.length).fill(0)
   );
 
-  const [stack, setStack] = useState<Frame[]>([{ id: 'main', selected: 0, scrollTop: 0 }]);
+  // Seed the stack so the iPod opens on the song list (not the main menu).
+  // Pre-pushing main + music means pressing MENU still walks back through
+  // the natural Music → Main path, matching real iPod navigation.
+  const [stack, setStack] = useState<Frame[]>([
+    { id: 'main', selected: 0, scrollTop: 0 },
+    { id: 'music', selected: 4, scrollTop: 0 },
+    { id: 'songs', selected: 0, scrollTop: 0 },
+  ]);
   const top = stack[stack.length - 1];
 
   const [npMode, setNpMode] = useState<NpMode>('normal');

@@ -9,15 +9,20 @@ import PixelIcon from './PixelIcon';
 import ContextMenu from './ContextMenu';
 import type { MenuItem } from '../types';
 
-type DesktopIcon =
-  | { id: string; label: string; icon: string; opens: string }
-  | { id: string; label: string; icon: string; action: 'trash' };
+interface DesktopIcon {
+  id: string;
+  label: string;
+  icon: string;
+  opens: string;
+  /** Optional params handed to the opened app — e.g. Finder uses `locationId`. */
+  params?: Record<string, unknown>;
+}
 
 const DESKTOP_ICONS: DesktopIcon[] = [
-  { id: 'hd', label: 'Macintosh HD', icon: 'macHD', opens: 'finder' },
-  { id: 'projects', label: 'Projects', icon: 'folder', opens: 'finder' },
+  { id: 'hd', label: 'Macintosh HD', icon: 'macHD', opens: 'finder', params: { locationId: 'mac-hd' } },
+  { id: 'projects', label: 'Projects', icon: 'folder-projects', opens: 'finder', params: { locationId: 'projects' } },
   { id: 'readme', label: 'README', icon: 'document', opens: 'about' },
-  { id: 'trash', label: 'Trash', icon: 'trash', action: 'trash' },
+  { id: 'trash', label: 'Trash', icon: 'trash', opens: 'finder', params: { locationId: 'trash' } },
 ];
 
 const ICON_W = 64;
@@ -80,7 +85,7 @@ export default function Desktop() {
   }, [positions, viewport.w, viewport.h]);
 
   const handleActivate = (icon: DesktopIcon) => {
-    if ('opens' in icon) openWindow(icon.opens);
+    openWindow(icon.opens, icon.params);
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>, icon: DesktopIcon) => {

@@ -8,7 +8,7 @@ interface WindowStore {
   maxZIndex: number;
   activeWindowId: string | null;
   launchTokens: Record<string, number>;
-  openWindow: (appId: string) => void;
+  openWindow: (appId: string, params?: Record<string, unknown>) => void;
   closeWindow: (id: string) => void;
   minimizeWindow: (id: string) => void;
   maximizeWindow: (id: string) => void;
@@ -26,7 +26,7 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
   activeWindowId: null,
   launchTokens: {},
 
-  openWindow: (appId) => {
+  openWindow: (appId, params) => {
     const app = APPS_BY_ID[appId];
     if (!app) return;
 
@@ -36,14 +36,28 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
     }
 
     const { windows, maxZIndex } = get();
-    const existing = windows.find(w => w.appId === appId);
+    // When params include a `windowKey`, allow multiple instances keyed by it
+    // (e.g. one TextEdit window per post slug). Otherwise dedupe by appId.
+    const windowKey = params?.windowKey;
+    const existing =
+      windowKey != null
+        ? windows.find(w => w.appId === appId && w.params?.windowKey === windowKey)
+        : windows.find(w => w.appId === appId && w.params?.windowKey == null);
     if (existing) {
       set(state => ({
         maxZIndex: state.maxZIndex + 1,
         activeWindowId: existing.id,
         windows: state.windows.map(w =>
           w.id === existing.id
-            ? { ...w, zIndex: state.maxZIndex + 1, isMinimized: false }
+            ? {
+                ...w,
+                zIndex: state.maxZIndex + 1,
+                isMinimized: false,
+                // Overwrite params on re-open so the app re-applies the intent
+                // (e.g. double-clicking Trash on the desktop while Finder is open
+                // navigates the existing Finder window to the trash location).
+                params: params ?? w.params,
+              }
             : w
         ),
       }));
@@ -62,6 +76,7 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
       isMinimized: false,
       isMaximized: false,
       zIndex: maxZIndex + 1,
+      params,
     };
     set(state => ({
       windows: [...state.windows, newWindow],
