@@ -5,7 +5,7 @@ import {
   nextIndex,
   type Video,
 } from '../store/videosStore';
-import { playClick } from '../lib/sounds';
+import { playClick, playTape } from '../lib/sounds';
 import { useWindowId } from '../components/Window';
 import { useWindowCommands } from '../lib/windowCommands';
 
@@ -21,7 +21,9 @@ interface YTPlayer {
   loadVideoById: (id: string) => void;
   playVideo: () => void;
   pauseVideo: () => void;
+  seekTo: (seconds: number, allowSeekAhead: boolean) => void;
   getCurrentTime: () => number;
+  getDuration: () => number;
   getPlayerState: () => number;
   destroy: () => void;
 }
@@ -30,6 +32,8 @@ interface YTNamespace {
     el: HTMLElement,
     opts: {
       videoId: string;
+      width?: string;
+      height?: string;
       playerVars?: Record<string, string | number>;
       events?: {
         onReady?: () => void;
@@ -101,8 +105,13 @@ export default function Videos() {
   const [ready, setReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [duration, setDuration] = useState(0);
   const [showList, setShowList] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [osd, setOsd] = useState<string | null>(null);
+  const osdTimerRef = useRef<number | null>(null);
+  const startedRef = useRef(false);
 
   // Keep advance logic out of stale closures.
   const stateRef = useRef({ currentIndex, shuffle, repeat, count: videos.length });
@@ -124,6 +133,8 @@ export default function Videos() {
       if (cancelled || !hostRef.current) return;
       playerRef.current = new YT.Player(hostRef.current, {
         videoId: firstId,
+        width: '100%',
+        height: '100%',
         // controls:0 + the click-capture overlay hide YouTube's chrome so
         // playback reads as native; the TV-static layer masks load/pause.
         playerVars: { controls: 0, disablekb: 1, iv_load_policy: 3, fs: 0, rel: 0, playsinline: 1 },
@@ -160,24 +171,47 @@ export default function Videos() {
     }
   }, [ready, video]);
 
-  // LCD clock.
+  // LCD clock + duration (duration settles once metadata loads).
   useEffect(() => {
     const t = window.setInterval(() => {
       const p = playerRef.current;
       if (p && ready) {
-        try { setElapsed(p.getCurrentTime() || 0); } catch {}
+        try {
+          setElapsed(p.getCurrentTime() || 0);
+          setDuration(p.getDuration() || 0);
+        } catch {}
       }
     }, 500);
     return () => clearInterval(t);
   }, [ready]);
 
+  // VCR-style OSD in the top-left: PLAY flashes briefly, PAUSE sticks.
+  useEffect(() => {
+    if (!ready) return;
+    if (osdTimerRef.current != null) clearTimeout(osdTimerRef.current);
+    if (isPlaying) {
+      startedRef.current = true;
+      setOsd('▶ PLAY');
+      osdTimerRef.current = window.setTimeout(() => setOsd(null), 1600);
+    } else if (startedRef.current) {
+      setOsd('❙❙ PAUSE');
+    }
+  }, [isPlaying, ready]);
+
   const togglePlay = useCallback(() => {
-    playClick();
     const p = playerRef.current;
     if (!p) return;
+    playTape(isPlaying ? 'stop' : 'play');
     if (isPlaying) p.pauseVideo();
     else p.playVideo();
   }, [isPlaying]);
+
+  const handleSeek = useCallback((seconds: number) => {
+    const p = playerRef.current;
+    if (!p) return;
+    p.seekTo(seconds, true);
+    setElapsed(seconds);
+  }, []);
 
   const prev = useCallback(() => {
     playClick();
@@ -267,8 +301,17 @@ export default function Videos() {
       style={{ background: 'var(--plat-100)', fontFamily: 'var(--font-chicago)' }}
     >
       {/* Screen */}
-      <div style={{ flex: 1, minHeight: 0, position: 'relative', background: '#000', border: '2px solid var(--plat-900)', margin: 6, marginBottom: 0 }}>
-        <div ref={hostRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden', background: '#000', border: '2px solid var(--plat-900)', margin: 6, marginBottom: 0 }}
+      >
+        {/* The player is 300px taller than the pane and shifted up 150px, so
+            YouTube's title bar (top) and watermark (bottom-right) render
+            outside the overflow-hidden crop — the ryOS trick. */}
+        <div style={{ position: 'absolute', left: 0, right: 0, top: -150, bottom: -150 }}>
+          <div ref={hostRef} style={{ width: '100%', height: '100%' }} />
+        </div>
         {/* TV static masks idle/paused/loading so YouTube's chrome never shows */}
         <TvStatic visible={!isPlaying} />
         {/* Click-capture layer: clicks toggle play through our API instead
@@ -276,6 +319,31 @@ export default function Videos() {
         <div
           onClick={videos.length ? togglePlay : undefined}
           style={{ position: 'absolute', inset: 0, zIndex: 2, cursor: videos.length ? 'pointer' : 'default' }}
+        />
+        {/* VCR on-screen display */}
+        {osd && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 8,
+              left: 10,
+              zIndex: 4,
+              fontFamily: 'var(--font-monaco)',
+              fontSize: 20,
+              color: '#9fdc9f',
+              textShadow: '1px 1px 0 #000, 0 0 6px rgba(0,0,0,0.8)',
+              letterSpacing: '0.1em',
+              pointerEvents: 'none',
+            }}
+          >
+            {osd}
+          </div>
+        )}
+        <SeekBar
+          duration={duration}
+          elapsed={elapsed}
+          visible={hovered && duration > 0 && videos.length > 0}
+          onSeek={handleSeek}
         />
         {videos.length === 0 && (
           <div style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7dc07d', fontFamily: 'var(--font-monaco)', fontSize: 16, textShadow: '0 0 4px #000', pointerEvents: 'none' }}>
@@ -395,6 +463,81 @@ export default function Videos() {
         <button className="chrome-outset" style={btnStyle} onClick={handleAdd} disabled={adding}>
           {adding ? 'ADDING…' : 'ADD'}
         </button>
+      </div>
+    </div>
+  );
+}
+
+/** Hover-reveal seek bar along the bottom of the screen; click or drag to seek. */
+function SeekBar({
+  duration,
+  elapsed,
+  visible,
+  onSeek,
+}: {
+  duration: number;
+  elapsed: number;
+  visible: boolean;
+  onSeek: (seconds: number) => void;
+}) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
+
+  const seekFromEvent = useCallback(
+    (clientX: number) => {
+      const track = trackRef.current;
+      if (!track || !duration) return;
+      const r = track.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+      onSeek(pct * duration);
+    },
+    [duration, onSeek]
+  );
+
+  const pct = duration > 0 ? Math.min(1, elapsed / duration) : 0;
+  return (
+    <div
+      onPointerDown={e => {
+        e.stopPropagation();
+        draggingRef.current = true;
+        (e.target as Element).setPointerCapture?.(e.pointerId);
+        seekFromEvent(e.clientX);
+      }}
+      onPointerMove={e => {
+        if (draggingRef.current) seekFromEvent(e.clientX);
+      }}
+      onPointerUp={() => { draggingRef.current = false; }}
+      onPointerCancel={() => { draggingRef.current = false; }}
+      style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 3,
+        padding: '10px 12px 8px',
+        background: 'linear-gradient(to top, rgba(0,0,0,0.65), transparent)',
+        opacity: visible ? 1 : 0,
+        pointerEvents: visible ? 'auto' : 'none',
+        transition: 'opacity 150ms linear',
+        cursor: 'pointer',
+        touchAction: 'none',
+      }}
+    >
+      <div
+        ref={trackRef}
+        style={{ height: 6, border: '1px solid #9fdc9f', background: 'rgba(0,0,0,0.6)', position: 'relative' }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            top: 1,
+            bottom: 1,
+            left: 1,
+            width: `calc(${pct * 100}% - 2px)`,
+            maxWidth: 'calc(100% - 2px)',
+            background: '#9fdc9f',
+          }}
+        />
       </div>
     </div>
   );

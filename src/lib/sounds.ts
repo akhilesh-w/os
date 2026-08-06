@@ -268,6 +268,63 @@ export function playClose() {
   whoosh(pipe.ctx, pipe.master, 2200, 350, 120, peak);
 }
 
+/**
+ * Mechanical cassette-deck transport — a low head-engage thump plus a
+ * latch click; 'play' follows with a short motor spin-up whir. Used by
+ * the Videos app for VCR-style play/pause feedback.
+ */
+export function playTape(kind: 'play' | 'stop') {
+  const pipe = ensure();
+  if (!pipe) return;
+  const { ctx: c, master: out } = pipe;
+  const now = c.currentTime;
+
+  const thump = c.createOscillator();
+  const tg = c.createGain();
+  thump.type = 'sine';
+  thump.frequency.setValueAtTime(kind === 'play' ? 150 : 110, now);
+  thump.frequency.exponentialRampToValueAtTime(55, now + 0.08);
+  tg.gain.setValueAtTime(0.16, now);
+  tg.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+  thump.connect(tg).connect(out);
+  thump.start(now);
+  thump.stop(now + 0.12);
+
+  const clickLen = 0.03;
+  const buf = c.createBuffer(1, Math.ceil(c.sampleRate * clickLen), c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+  const click = c.createBufferSource();
+  click.buffer = buf;
+  const bp = c.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 2500;
+  bp.Q.value = 1.2;
+  const cg = c.createGain();
+  cg.gain.value = 0.28;
+  click.connect(bp).connect(cg).connect(out);
+  click.start(now);
+
+  if (kind === 'play') {
+    const whirLen = 0.35;
+    const wbuf = c.createBuffer(1, Math.ceil(c.sampleRate * whirLen), c.sampleRate);
+    const wd = wbuf.getChannelData(0);
+    for (let i = 0; i < wd.length; i++) wd[i] = Math.random() * 2 - 1;
+    const whir = c.createBufferSource();
+    whir.buffer = wbuf;
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(300, now + 0.03);
+    lp.frequency.linearRampToValueAtTime(900, now + whirLen);
+    const wg = c.createGain();
+    wg.gain.setValueAtTime(0.0001, now + 0.03);
+    wg.gain.linearRampToValueAtTime(0.045, now + 0.1);
+    wg.gain.exponentialRampToValueAtTime(0.001, now + whirLen);
+    whir.connect(lp).connect(wg).connect(out);
+    whir.start(now + 0.03);
+  }
+}
+
 /** F# major chord with bell-like decay — the iconic Mac startup. Roughly Quadra-flavored. */
 export function playStartup() {
   const pipe = ensure();
