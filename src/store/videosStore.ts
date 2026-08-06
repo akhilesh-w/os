@@ -9,21 +9,16 @@ export interface Video {
 }
 
 /**
- * Starter library — Apple history on YouTube, same spirit as ryOS's Videos
- * app. Playback happens inside YouTube's own player, so YouTube carries the
- * content licensing; we never host or proxy the media.
+ * Starter library — the videos from akhileshw.xyz's Logs page (the "Video"
+ * category in src/app/logs/data.ts over there). Playback happens inside
+ * YouTube's own player, so YouTube carries the content licensing; we never
+ * host or proxy the media.
  */
 export const DEFAULT_VIDEOS: Video[] = [
-  { id: '3vq9p00T08I', title: 'Macintosh (1984)', artist: 'Apple Computer' },
-  { id: '2B-XwPjn9YY', title: 'Macintosh Introduction (1984)', artist: 'Steve Jobs' },
-  { id: 'VFP-VZtgb0s', title: 'iMac G3 vs PC Simplicity (1998)', artist: 'Apple Computer' },
-  { id: 'dtaSDVpAo4c', title: 'Apple Back on Track (1998)', artist: 'Steve Jobs' },
-  { id: 'Ko4V3G4NqII', title: 'Mac OS X Introduction (2000)', artist: 'Steve Jobs' },
-  { id: 'mE_bDNaYAr8', title: 'iPod Ad (2001)', artist: 'Apple Computer' },
-  { id: 'Mc_FiHTITHE', title: 'iPod Introduction (2001)', artist: 'Steve Jobs' },
-  { id: 'b5P3QDm61go', title: 'iMac G4 "Lamp" Ad (2002)', artist: 'Apple Computer' },
-  { id: 'VQKMoT-6XSg', title: 'iPhone Introduction (2007)', artist: 'Steve Jobs' },
-  { id: 'EKBVLzOZyLw', title: 'On Focus', artist: 'Jony Ive' },
+  { id: '-jCQerxzF48', title: 'Do It Anyway', artist: 'Casey Neistat' },
+  { id: 'StMltAX0mp0', title: 'Do Hard Things', artist: 'Casey Neistat' },
+  { id: 'wupToqz1e2g', title: 'The Pale Blue Dot', artist: 'Carl Sagan' },
+  { id: 'jG7dSXcfVqE', title: "Do What You Can't", artist: 'Casey Neistat' },
 ];
 
 /** Extract a YouTube video id from any of the usual URL shapes (or a raw id). */
@@ -88,7 +83,10 @@ export const useVideosStore = create<VideosStore>()(
       toggleRepeat: () => set(s => ({ repeat: !s.repeat })),
       resetLibrary: () => set({ videos: DEFAULT_VIDEOS, currentIndex: 0 }),
     }),
-    { name: 'os.akhileshw.xyz:videos:v1' }
+    // v2: default library swapped from Apple-history to akhileshw.xyz's
+    // Logs videos — the key bump drops any persisted v1 library so the new
+    // defaults actually appear for returning visitors.
+    { name: 'os.akhileshw.xyz:videos:v2' }
   )
 );
 
