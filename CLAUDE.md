@@ -24,7 +24,7 @@ Anything you add must match this era. If you find yourself reaching for `backdro
 - **Tailwind CSS** for layout; CSS variables + inline `style={}` for platinum chrome details
 - **Zustand** for window state
 - **Framer Motion** for window open/close animations (fast, 120ms — Platinum was effectively instant)
-- **Google Fonts**: Pixelify Sans (UI), VT323 (mono), loaded via `<link>` in `index.html`
+- **Fonts**: Pixelify Sans (UI), VT323 (mono) — self-hosted woff2 in `public/fonts/`, declared via `@font-face` in `index.css`, preloaded in `index.html`
 
 Scripts: `npm run dev`, `npm run build`, `npm run preview`.
 
@@ -235,7 +235,7 @@ src/
 - **Pointer capture**: Window dragging uses `setPointerCapture` so we don't need document-level listeners.
 - **External-URL "apps"** (like GitHub) have `defaultWidth: 0, defaultHeight: 0` — those values are never read because `openWindow` short-circuits to `window.open`.
 - **Strict mode + Framer Motion**: React 19 strict mode double-runs effects. `openWindow` is idempotent (existing-window check), so the auto-open in `App.tsx` works correctly under strict mode.
-- **Fonts are CDN-loaded** via `<link>` in `index.html`. If we want offline reliability, drop the woff2 files into `public/fonts/` and switch to `@font-face` declarations.
+- **Fonts are self-hosted** — woff2 files in `public/fonts/` (latin + latin-ext subsets), `@font-face` in `index.css`, latin files preloaded in `index.html`. Pixelify Sans is a variable font (weight 400–700 in one file). No CDN dependency.
 
 ## Out of scope right now
 
