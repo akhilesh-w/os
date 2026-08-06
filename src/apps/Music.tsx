@@ -6,9 +6,11 @@ import {
   useState,
   type CSSProperties,
   type Dispatch,
+  type ReactNode,
   type SetStateAction,
 } from 'react';
-import { PLAYLIST, type Track } from '../lib/music';
+import { PLAYLIST, ALBUM_LIST, type Track } from '../lib/music';
+import { fetchLyrics, activeLineIndex, type Lyrics } from '../lib/lyrics';
 import { playTick, playClick } from '../lib/sounds';
 
 const ALBUMS = Array.from(new Set(PLAYLIST.map(t => t.album))).sort();
@@ -39,6 +41,7 @@ function usePersistedState<T>(key: string, initial: T): [T, Dispatch<SetStateAct
 type ScreenId =
   | 'main'
   | 'music'
+  | 'coverflow'
   | 'songs'
   | 'albums'
   | 'album'
@@ -68,7 +71,7 @@ interface MenuItem {
 }
 
 type Repeat = 'off' | 'one' | 'all';
-type NpMode = 'normal' | 'volume' | 'scrub' | 'rating';
+type NpMode = 'normal' | 'volume' | 'scrub' | 'rating' | 'lyrics';
 
 const VISIBLE_ITEMS = 7;
 const LCD_W = 218;
@@ -246,16 +249,31 @@ export default function Music() {
     npTimerRef.current = window.setTimeout(() => setNpMode('normal'), 4500);
   }, []);
 
+  // Center-button cycle on Now Playing: scrub → rating → volume → lyrics.
+  // Lyrics is a full-screen mode with no auto-timeout; every other transient
+  // mode falls back to normal after 4.5s of inactivity.
   const cycleNpMode = useCallback(() => {
-    setNpMode(m =>
-      m === 'normal' ? 'scrub' : m === 'scrub' ? 'rating' : m === 'rating' ? 'volume' : 'normal'
-    );
-    resetNpTimer();
+    setNpMode(m => {
+      const next: NpMode =
+        m === 'normal' ? 'scrub'
+        : m === 'scrub' ? 'rating'
+        : m === 'rating' ? 'volume'
+        : m === 'volume' ? 'lyrics'
+        : 'normal';
+      if (next === 'lyrics') {
+        if (npTimerRef.current != null) clearTimeout(npTimerRef.current);
+      } else {
+        resetNpTimer();
+      }
+      return next;
+    });
   }, [resetNpTimer]);
 
   const handleNpScroll = useCallback(
     (dir: 1 | -1) => {
-      const mode: NpMode = npMode === 'normal' ? 'volume' : npMode;
+      // Wheel default on Now Playing is seek (like Cover-Flow-era iPods) —
+      // volume is still reachable through the center-button cycle.
+      const mode: NpMode = npMode === 'normal' || npMode === 'lyrics' ? 'scrub' : npMode;
       if (mode === 'volume') {
         setVolume(v => Math.max(0, Math.min(100, v + dir * 4)));
       } else if (mode === 'scrub') {
@@ -275,8 +293,12 @@ export default function Music() {
           return next;
         });
       }
-      if (npMode === 'normal') setNpMode('volume');
-      resetNpTimer();
+      if (npMode === 'normal') {
+        setNpMode('scrub');
+        resetNpTimer();
+      } else if (npMode !== 'lyrics') {
+        resetNpTimer();
+      }
     },
     [npMode, duration, index, resetNpTimer, setRatings, setVolume]
   );
@@ -309,12 +331,17 @@ export default function Music() {
           ];
         case 'music':
           return [
-            { label: 'Cover Flow', onSelect: () => push('about', 'coverflow-soon') },
+            { label: 'Cover Flow', onSelect: () => push('coverflow'), rightLabel: '›' },
             { label: 'Playlists', onSelect: () => push('playlists'), rightLabel: '›' },
             { label: 'Artists', onSelect: () => push('artists'), rightLabel: '›' },
             { label: 'Albums', onSelect: () => push('albums'), rightLabel: '›' },
             { label: 'Songs', onSelect: () => push('songs'), rightLabel: '›' },
           ];
+        case 'coverflow':
+          return ALBUM_LIST.map(a => ({
+            label: a.name,
+            onSelect: () => push('album', a.name),
+          }));
         case 'songs':
           return PLAYLIST.map((t, i) => ({
             label: t.title,
@@ -485,6 +512,7 @@ export default function Music() {
     switch (top.id) {
       case 'main': return 'iPod';
       case 'music': return 'Music';
+      case 'coverflow': return 'Cover Flow';
       case 'songs': return 'Songs';
       case 'albums': return 'Albums';
       case 'album': return top.param ?? 'Album';
@@ -497,11 +525,7 @@ export default function Music() {
       case 'shuffle-setting': return 'Shuffle';
       case 'repeat-setting': return 'Repeat';
       case 'about':
-        return top.param === 'notes'
-          ? 'Notes'
-          : top.param === 'coverflow-soon'
-          ? 'Cover Flow'
-          : 'About';
+        return top.param === 'notes' ? 'Notes' : 'About';
       case 'now-playing': return 'Now Playing';
       default: return 'iPod';
     }
@@ -567,18 +591,24 @@ export default function Music() {
           />
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             {top.id === 'now-playing' ? (
-              <NowPlayingView
-                track={track}
-                index={index}
-                currentTime={currentTime}
-                duration={duration}
-                status={status}
-                volume={volume}
-                rating={ratings[index] ?? 0}
-                npMode={npMode}
-                fg={lcdFg}
-                bg={lcdBg}
-              />
+              npMode === 'lyrics' ? (
+                <LyricsView track={track} currentTime={currentTime} fg={lcdFg} bg={lcdBg} />
+              ) : (
+                <NowPlayingView
+                  track={track}
+                  index={index}
+                  currentTime={currentTime}
+                  duration={duration}
+                  status={status}
+                  volume={volume}
+                  rating={ratings[index] ?? 0}
+                  npMode={npMode}
+                  fg={lcdFg}
+                  bg={lcdBg}
+                />
+              )
+            ) : top.id === 'coverflow' ? (
+              <CoverFlowView selected={top.selected} fg={lcdFg} bg={lcdBg} />
             ) : top.id === 'about' ? (
               <AboutView variant={top.param} />
             ) : top.id === 'clock' ? (
@@ -956,6 +986,200 @@ function Bar({
   );
 }
 
+// ────────── Cover Flow ──────────
+
+/**
+ * Wheel-driven Cover Flow: the selected album faces front, neighbors recede
+ * with a rotateY tilt under a shared perspective. Center button opens the
+ * album's track list. Covers get the same grayscale treatment as Now
+ * Playing art so they read as part of the monochrome LCD.
+ */
+function CoverFlowView({ selected, fg, bg }: { selected: number; fg: string; bg: string }) {
+  const sel = Math.min(selected, ALBUM_LIST.length - 1);
+  const album = ALBUM_LIST[sel];
+  return (
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, position: 'relative', perspective: 280, overflow: 'hidden' }}>
+        {ALBUM_LIST.map((a, i) => {
+          const off = i - sel;
+          if (Math.abs(off) > 3) return null;
+          const isCenter = off === 0;
+          const x = off === 0 ? 0 : off * 34 + Math.sign(off) * 14;
+          const size = isCenter ? 72 : 58;
+          return (
+            <div
+              key={a.name}
+              style={{
+                position: 'absolute',
+                left: '50%',
+                top: '50%',
+                width: size,
+                height: size,
+                marginLeft: -size / 2,
+                marginTop: -size / 2 - 4,
+                transform: `translateX(${x}px) rotateY(${isCenter ? 0 : off < 0 ? 55 : -55}deg)`,
+                transition: 'transform 220ms ease, width 220ms ease, height 220ms ease',
+                zIndex: 10 - Math.abs(off),
+                border: `1px solid ${fg}`,
+                background: fg,
+                overflow: 'hidden',
+              }}
+            >
+              {a.cover && (
+                <img
+                  src={a.cover}
+                  alt=""
+                  width={size}
+                  height={size}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'block',
+                    objectFit: 'cover',
+                    filter: `grayscale(1) contrast(1.15) brightness(${isCenter ? 1.05 : 0.75})`,
+                  }}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ textAlign: 'center', padding: '0 8px 5px', lineHeight: 1.2 }}>
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {album?.name}
+        </div>
+        <div style={{ fontSize: 10, opacity: 0.75 }}>
+          {album?.artist} · {sel + 1} of {ALBUM_LIST.length}
+        </div>
+      </div>
+      <div style={{ height: 3, background: bg }} />
+    </div>
+  );
+}
+
+// ────────── Lyrics ──────────
+
+/**
+ * Synced-lyrics screen (Now Playing → center button cycles to it). Synced
+ * LRC lines auto-follow playback with the active line inverted; plain
+ * lyrics render as a static sheet. Fetched from lrclib.net, cached per track.
+ */
+function LyricsView({
+  track,
+  currentTime,
+  fg,
+  bg,
+}: {
+  track: Track;
+  currentTime: number;
+  fg: string;
+  bg: string;
+}) {
+  const [state, setState] = useState<'loading' | 'none' | 'ready'>('loading');
+  const [lyrics, setLyrics] = useState<Lyrics | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setState('loading');
+    setLyrics(null);
+    fetchLyrics(track).then(l => {
+      if (cancelled) return;
+      setLyrics(l);
+      setState(l ? 'ready' : 'none');
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [track]);
+
+  if (state === 'loading') {
+    return <CenterNote fg={fg}>Looking up lyrics…</CenterNote>;
+  }
+  if (state === 'none' || !lyrics) {
+    return <CenterNote fg={fg}>No lyrics found — probably an instrumental.</CenterNote>;
+  }
+
+  if (!lyrics.synced) {
+    return (
+      <div style={{ flex: 1, overflow: 'auto', padding: '4px 8px', fontSize: 11, lineHeight: 1.45 }}>
+        {lyrics.lines.map((l, i) => (
+          <div key={i} style={{ minHeight: l.text ? undefined : 8 }}>{l.text}</div>
+        ))}
+      </div>
+    );
+  }
+
+  const active = activeLineIndex(lyrics.lines, currentTime);
+  const WINDOW = 5;
+  const start = Math.max(0, Math.min(active - 2, lyrics.lines.length - WINDOW));
+  const visible = lyrics.lines.slice(start, start + WINDOW);
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        padding: '2px 6px',
+        gap: 1,
+      }}
+    >
+      {visible.map((l, i) => {
+        const idx = start + i;
+        const isActive = idx === active;
+        return (
+          <div
+            key={idx}
+            style={{
+              fontSize: 11,
+              lineHeight: 1.35,
+              padding: '0 3px',
+              background: isActive ? fg : 'transparent',
+              color: isActive ? bg : fg,
+              opacity: isActive ? 1 : 0.75,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {l.text || '♪'}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CenterNote({ children, fg }: { children: ReactNode; fg: string }) {
+  return (
+    <div
+      style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        padding: 12,
+        fontSize: 11,
+        color: fg,
+        opacity: 0.8,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 // ────────── About / Notes ──────────
 
 function AboutView({ variant }: { variant?: string }) {
@@ -964,22 +1188,15 @@ function AboutView({ variant }: { variant?: string }) {
       <div style={{ flex: 1, overflow: 'auto', padding: 8, fontSize: 11, lineHeight: 1.45 }}>
         <div style={{ fontWeight: 700, marginBottom: 4 }}>Notes from Akhilesh</div>
         <p>
-          This iPod runs on real audio from archive.org and a small click-wheel rotation handler.
-          Scroll the wheel to move through menus. Tap the center button while on Now Playing to
-          cycle through scrub, rating, and volume modes.
+          This iPod streams Creative-Commons audio from archive.org. Scroll the wheel to move
+          through menus; on Now Playing the wheel seeks through the song. Tap the center button
+          there to cycle scrub → rating → volume → lyrics. Lyrics come from lrclib.net, synced
+          when available. Cover Flow lives under Music.
         </p>
         <p style={{ marginTop: 6 }}>
           Drop your own MP3s into <code>public/audio/</code> and reference them in{' '}
           <code>PLAYLIST</code> in <code>src/lib/music.ts</code>.
         </p>
-      </div>
-    );
-  }
-  if (variant === 'coverflow-soon') {
-    return (
-      <div style={{ flex: 1, padding: 8, fontSize: 11, lineHeight: 1.45 }}>
-        <div style={{ fontWeight: 700 }}>Cover Flow</div>
-        <p>Coming in the next firmware update.</p>
       </div>
     );
   }
