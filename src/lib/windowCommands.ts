@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { MenuDefinition } from '../types';
 
 /**
  * Per-window command registry. Apps register their menu-controllable
@@ -33,6 +34,13 @@ export interface AppCommands {
   newDocumentShortcut?: string;
   /** Copy the current address bar / URL. */
   copyAddress?: () => void;
+  /**
+   * Whole extra menus this app contributes to the menu bar while its window
+   * is active (e.g. Videos → Controls + Library). Rendered between View and
+   * Special. Rebuild on every state change that affects labels/checkmarks —
+   * the menu bar renders them as-is.
+   */
+  menus?: MenuDefinition[];
 }
 
 interface WindowCommandsStore {

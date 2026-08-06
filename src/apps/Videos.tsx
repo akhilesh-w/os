@@ -6,6 +6,8 @@ import {
   type Video,
 } from '../store/videosStore';
 import { playClick } from '../lib/sounds';
+import { useWindowId } from '../components/Window';
+import { useWindowCommands } from '../lib/windowCommands';
 
 /**
  * Videos — a QuickTime-meets-VCR player in platinum chrome, in the spirit of
@@ -90,6 +92,7 @@ export default function Videos() {
   const removeVideo = useVideosStore(s => s.removeVideo);
   const toggleShuffle = useVideosStore(s => s.toggleShuffle);
   const toggleRepeat = useVideosStore(s => s.toggleRepeat);
+  const resetLibrary = useVideosStore(s => s.resetLibrary);
 
   const video = videos[currentIndex];
 
@@ -121,7 +124,9 @@ export default function Videos() {
       if (cancelled || !hostRef.current) return;
       playerRef.current = new YT.Player(hostRef.current, {
         videoId: firstId,
-        playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
+        // controls:0 + the click-capture overlay hide YouTube's chrome so
+        // playback reads as native; the TV-static layer masks load/pause.
+        playerVars: { controls: 0, disablekb: 1, iv_load_policy: 3, fs: 0, rel: 0, playsinline: 1 },
         events: {
           onReady: () => setReady(true),
           onStateChange: e => {
@@ -209,6 +214,43 @@ export default function Videos() {
     [setCurrentIndex]
   );
 
+  // Contribute Controls + Library menus to the menu bar while active.
+  const windowId = useWindowId();
+  useEffect(() => {
+    if (!windowId) return;
+    useWindowCommands.getState().set(windowId, {
+      menus: [
+        {
+          label: 'Controls',
+          items: [
+            { type: 'item', label: isPlaying ? 'Pause' : 'Play', onSelect: togglePlay },
+            { type: 'item', label: 'Previous', onSelect: prev },
+            { type: 'item', label: 'Next', onSelect: next },
+            { type: 'separator' },
+            { type: 'item', label: 'Shuffle', checked: shuffle, onSelect: () => { playClick(); toggleShuffle(); } },
+            { type: 'item', label: 'Repeat', checked: repeat, onSelect: () => { playClick(); toggleRepeat(); } },
+          ],
+        },
+        {
+          label: 'Library',
+          items: [
+            { type: 'item', label: 'Add to Library…', onSelect: handleAdd },
+            { type: 'separator' },
+            ...videos.map((v, i) => ({
+              type: 'item' as const,
+              label: v.title,
+              checked: i === currentIndex,
+              onSelect: () => selectVideo(i),
+            })),
+            { type: 'separator' },
+            { type: 'item', label: 'Reset Library', onSelect: () => { playClick(); resetLibrary(); } },
+          ],
+        },
+      ],
+    });
+    return () => useWindowCommands.getState().clear(windowId);
+  }, [windowId, videos, currentIndex, shuffle, repeat, isPlaying, togglePlay, prev, next, handleAdd, selectVideo, toggleShuffle, toggleRepeat, resetLibrary]);
+
   const btnStyle: React.CSSProperties = {
     fontFamily: 'var(--font-chicago)',
     fontSize: 11,
@@ -227,8 +269,16 @@ export default function Videos() {
       {/* Screen */}
       <div style={{ flex: 1, minHeight: 0, position: 'relative', background: '#000', border: '2px solid var(--plat-900)', margin: 6, marginBottom: 0 }}>
         <div ref={hostRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
+        {/* TV static masks idle/paused/loading so YouTube's chrome never shows */}
+        <TvStatic visible={!isPlaying} />
+        {/* Click-capture layer: clicks toggle play through our API instead
+            of engaging YouTube's own overlay UI */}
+        <div
+          onClick={videos.length ? togglePlay : undefined}
+          style={{ position: 'absolute', inset: 0, zIndex: 2, cursor: videos.length ? 'pointer' : 'default' }}
+        />
         {videos.length === 0 && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7dc07d', fontFamily: 'var(--font-monaco)', fontSize: 16 }}>
+          <div style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7dc07d', fontFamily: 'var(--font-monaco)', fontSize: 16, textShadow: '0 0 4px #000', pointerEvents: 'none' }}>
             NO TAPE — press ADD
           </div>
         )}
@@ -237,6 +287,7 @@ export default function Videos() {
             style={{
               position: 'absolute',
               inset: 0,
+              zIndex: 3,
               overflow: 'auto',
               background: 'var(--plat-white)',
               borderTop: '1px solid var(--plat-900)',
@@ -346,6 +397,47 @@ export default function Videos() {
         </button>
       </div>
     </div>
+  );
+}
+
+/** Analog TV noise on a tiny canvas, pixel-scaled up — shown when paused. */
+function TvStatic({ visible }: { visible: boolean }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (!visible) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+    const img = ctx.createImageData(canvas.width, canvas.height);
+    const draw = () => {
+      const d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const v = (Math.random() * 256) | 0;
+        d[i] = d[i + 1] = d[i + 2] = v;
+        d[i + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+    };
+    draw();
+    const t = window.setInterval(draw, 90);
+    return () => clearInterval(t);
+  }, [visible]);
+  if (!visible) return null;
+  return (
+    <canvas
+      ref={canvasRef}
+      width={160}
+      height={120}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 1,
+        width: '100%',
+        height: '100%',
+        imageRendering: 'pixelated',
+        pointerEvents: 'none',
+      }}
+    />
   );
 }
 

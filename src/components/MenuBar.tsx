@@ -297,6 +297,12 @@ export default function MenuBar() {
         { type: 'item', label: 'Show Toolbar', disabled: true },
       ],
     },
+    // App-contributed menus (Videos → Controls/Library, etc.) slot in
+    // between View and Special, where per-app menus lived in classic Mac OS.
+    ...(activeCmds?.menus ?? []).map((m, i) => ({
+      ...m,
+      key: m.key ?? `appmenu-${i}`,
+    })),
     {
       key: 'special',
       label: 'Special',
