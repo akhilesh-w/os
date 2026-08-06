@@ -167,25 +167,51 @@ To add a per-app menu later, the cleanest path is to extend `AppDefinition` with
 
 ```
 src/
-├── App.tsx               — root: mounts MenuBar/Desktop/Dock, auto-opens initial windows
-├── main.tsx              — ReactDOM root
-├── index.css             — Tailwind directives + CSS variables + chrome helper classes
-├── types/index.ts        — WindowState, AppDefinition
-├── store/windowStore.ts  — Zustand: windows + actions
+├── App.tsx               — root: MenuBar/Desktop/Dock + boot splash, screensaver idle timer, ⌘K/⌘Space Spotlight binding
+├── main.tsx              — ReactDOM root; applies persisted theme before first paint
+├── index.css             — Tailwind directives + CSS variables + chrome helpers + per-theme overrides (data-theme selectors)
+├── types/index.ts        — WindowState, AppDefinition, MenuItem
+├── store/
+│   ├── windowStore.ts        — Zustand: windows + actions, launch tokens, minimize targets
+│   ├── themeStore.ts         — active theme (persisted)
+│   ├── wallpaperStore.ts     — active wallpaper (persisted)
+│   ├── soundStore.ts         — sound enabled + volume (persisted)
+│   ├── desktopStore.ts       — desktop icon positions (persisted)
+│   ├── screensaverStore.ts   — idle timeout, enabled, forceOn
+│   ├── spotlightStore.ts     — Spotlight open/close
+│   └── stickiesStore.ts      — sticky notes (persisted)
+├── lib/
+│   ├── themes.ts             — theme registry: 5 themes, each with systemLabel, default wallpaper, sound profile
+│   ├── sounds.ts             — Web Audio synth, per-theme sound recipes
+│   ├── windowCommands.ts     — per-window command registry (active app publishes menu commands)
+│   ├── vfs.ts / vfsSeed.ts   — Terminal's virtual filesystem, seeded from repo sources at build time
+│   ├── shell.ts              — Terminal command interpreter
+│   ├── posts.ts / music.ts   — blog posts + iPod playlist data
+│   └── useIsMobile.ts        — matchMedia hook for the mobile layout
 ├── apps/
-│   ├── registry.ts       — central APPS list
-│   ├── Finder.tsx        — sidebar (FAVORITES/DEVICES), toolbar with icon/list toggle + search, navigable locations
-│   ├── Launcher.tsx      — Mac OS 8 Launcher: chrome-outset tile grid of all non-hidden apps
-│   ├── Terminal.tsx      — VT323, green-on-black, command history
-│   ├── About.tsx         — "About This Macintosh"-style identity card
-│   └── Music.tsx         — Music Box: pixel album art + chrome controls + playlist
+│   ├── registry.ts           — central APPS list
+│   ├── Finder.tsx            — sidebar (FAVORITES/DEVICES), icon/list toggle + search, navigable locations
+│   ├── Launcher.tsx          — Mac OS 8 Launcher: chrome-outset tile grid of all non-hidden apps
+│   ├── Terminal.tsx          — VT323, green-on-black, bash-like shell over the VFS
+│   ├── About.tsx             — "About This Macintosh"-style identity card
+│   ├── Readme.tsx            — README viewer
+│   ├── Music.tsx             — iPod: LCD + clickwheel, plays real audio
+│   ├── ControlPanels.tsx     — Appearance (theme + wallpaper), Sound, About panels
+│   ├── TextEdit.tsx          — SimpleText-style Markdown blog reader
+│   ├── InternetExplorer.tsx  — iframe browser + Wayback Machine year selector
+│   ├── Calculator.tsx        — classic pocket calculator with operator state machine
+│   └── Stickies.tsx          — multi-window sticky notes
 └── components/
     ├── MenuBar.tsx           — top bar with rainbow Apple + menus + clock + keyboard shortcuts
-    ├── MenuBarDropdown.tsx   — dropdown panel rendered under an open menu label
-    ├── Desktop.tsx           — dithered wallpaper + desktop icons + Window renderer
-    ├── Window.tsx            — platinum window chrome
+    ├── MenuBarDropdown.tsx   — dropdown panel with keyboard navigation
+    ├── ContextMenu.tsx       — right-click menu (desktop)
+    ├── Desktop.tsx           — wallpaper + draggable desktop icons + Window renderer
+    ├── Window.tsx            — themed window chrome, drag/resize, genie minimize
     ├── Dock.tsx              — bottom dock container
-    ├── DockIcon.tsx          — single dock button + tooltip
+    ├── DockIcon.tsx          — single dock button + tooltip + launch bounce
+    ├── AppSwitcher.tsx       — ⌥Tab window switcher
+    ├── Spotlight.tsx         — ⌘K/⌘Space fuzzy launcher overlay
+    ├── Screensaver.tsx       — starfield + floating clock idle overlay
     └── PixelIcon.tsx         — inline-SVG icon set on a 16×16 grid
 ```
 
@@ -201,16 +227,7 @@ src/
 
 ## Roadmap (`TASKS.md`)
 
-`TASKS.md` is the prioritized feature backlog — boot screen, menu dropdowns, dock magnification, wallpaper picker, Control Panels app, real Music ↔ Spotify, MDX blog, screensaver, mobile layout, etc. **Ordered roughly by priority**, but priorities can shift; confirm before starting a task you haven't been asked to do.
-
-Now that we've committed to the Platinum aesthetic, when tackling TASKS.md items keep them in-era:
-
-- **Boot screen (#1)** → classic "Welcome to Macintosh" splash with Happy Mac and Chicago text, not Apple-logo + modern progress bar.
-- **Dock magnification (#4)** → minor scale on hover is fine, but no Aqua-style proximity field — that's an OS X feature.
-- **Wallpaper picker (#6)** → built-in System 7/8 patterns: dither gray, blue-gray, Stationery, Bondi, Random Patterns.
-- **System sounds (#8)** → use the real System 7 / Sosumi / startup chime samples (if licensing allows) or synthesize with Tone.js.
-- **iPod / Music app (#10)** → already redone as a Music Box panel; can extend to a real iPod-clickwheel app later.
-- **Blog / TextEdit (#11)** → SimpleText / TextEdit Classic look with Geneva body text.
+`TASKS.md` records what's shipped (tasks 1–22, all done) and the current **refinement backlog** (R1–R4: code-splitting, self-hosted fonts, theme-authentic resize, per-theme polish audits). The project is feature-complete by design — no new apps planned; the roadmap is refinement only. Confirm before starting a task you haven't been asked to do, and keep everything in the System 7 / Platinum era (with the four opt-in themes as the sanctioned exceptions).
 
 ## Things to be careful about
 

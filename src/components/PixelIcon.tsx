@@ -252,6 +252,28 @@ const ICONS: Record<string, ReactNode> = {
       <rect x="11" y="11" width="2" height="2" fill="#000" />
     </g>
   ),
+  calculator: (
+    <g fill="currentColor">
+      {/* Case outline */}
+      <rect x="2" y="1" width="12" height="14" fill="#000" />
+      <rect x="3" y="2" width="10" height="12" fill="#ddd" />
+      {/* LCD */}
+      <rect x="4" y="3" width="8" height="3" fill="#000" />
+      <rect x="5" y="4" width="6" height="1" fill="#c7d3b7" />
+      {/* Buttons — 4×3 grid of pixel-dots */}
+      <rect x="4" y="7" width="2" height="1" fill="#000" />
+      <rect x="7" y="7" width="2" height="1" fill="#000" />
+      <rect x="10" y="7" width="2" height="1" fill="#000" />
+      <rect x="4" y="9" width="2" height="1" fill="#000" />
+      <rect x="7" y="9" width="2" height="1" fill="#000" />
+      <rect x="10" y="9" width="2" height="1" fill="#000" />
+      <rect x="4" y="11" width="2" height="1" fill="#000" />
+      <rect x="7" y="11" width="2" height="1" fill="#000" />
+      <rect x="10" y="11" width="2" height="1" fill="#000" />
+      <rect x="4" y="13" width="5" height="1" fill="#000" />
+      <rect x="10" y="13" width="2" height="1" fill="#000" />
+    </g>
+  ),
   speaker: (
     <g fill="currentColor">
       {/* Speaker cone */}
@@ -263,6 +285,37 @@ const ICONS: Record<string, ReactNode> = {
       <rect x="9" y="6" width="1" height="4" fill="#000" />
       <rect x="11" y="4" width="1" height="8" fill="#000" />
       <rect x="13" y="2" width="1" height="12" fill="#000" />
+    </g>
+  ),
+  browser: (
+    <g fill="currentColor">
+      {/* Window frame */}
+      <rect x="1" y="2" width="14" height="12" fill="#000" />
+      <rect x="2" y="3" width="12" height="10" fill="#fff" />
+      {/* Title bar */}
+      <rect x="2" y="3" width="12" height="2" fill="#000" />
+      {/* Globe inside content */}
+      <rect x="6" y="6" width="4" height="1" fill="#000" />
+      <rect x="5" y="7" width="6" height="1" fill="#000" />
+      <rect x="5" y="9" width="6" height="1" fill="#000" />
+      <rect x="6" y="10" width="4" height="1" fill="#000" />
+      <rect x="7" y="6" width="2" height="5" fill="#000" />
+      <rect x="5" y="8" width="6" height="1" fill="#000" />
+    </g>
+  ),
+  sticky: (
+    <g fill="currentColor">
+      {/* Yellow sticky note with corner fold */}
+      <rect x="2" y="2" width="12" height="12" fill="#000" />
+      <rect x="3" y="3" width="10" height="10" fill="#fff8a8" />
+      {/* Folded corner */}
+      <rect x="10" y="10" width="3" height="3" fill="#eedf60" />
+      <rect x="10" y="10" width="1" height="3" fill="#000" />
+      <rect x="10" y="10" width="3" height="1" fill="#000" />
+      {/* Ruled lines */}
+      <rect x="4" y="5" width="6" height="1" fill="#000" />
+      <rect x="4" y="7" width="5" height="1" fill="#000" />
+      <rect x="4" y="9" width="4" height="1" fill="#000" />
     </g>
   ),
 };

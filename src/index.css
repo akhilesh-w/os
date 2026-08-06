@@ -48,6 +48,39 @@ body {
   image-rendering: pixelated;
 }
 
+/* ────────── System cursors ─────────────────────────────────
+   Buttons and links get the pointer; inputs get the I-beam;
+   draggable headers get a grab cursor. Real OS feel. */
+button:not(:disabled),
+a,
+[role="button"]:not(:disabled),
+.menu-item,
+.dock-icon-btn,
+.finder-row {
+  cursor: pointer;
+}
+button:disabled,
+[role="button"][disabled] {
+  cursor: default;
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not(:disabled),
+textarea:not(:disabled),
+[contenteditable="true"] {
+  cursor: text;
+}
+input[type="range"]:not(:disabled) { cursor: ew-resize; }
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled) { cursor: pointer; }
+
+/* Draggable surfaces — title bars, desktop icons, dock items mid-drag.
+   The `.cursor-grab` and `.cursor-grabbing` classes can be applied
+   explicitly when a drag is in progress. */
+.title-pinstripe,
+.title-inactive { cursor: grab; }
+.title-pinstripe:active,
+.title-inactive:active { cursor: grabbing; }
+.size-box { cursor: nwse-resize; }
+
 /* Scrollbars — chunky platinum style */
 ::-webkit-scrollbar {
   width: 15px;
@@ -349,11 +382,18 @@ body {
   filter: invert(1) hue-rotate(180deg);
 }
 
-.menu-dropdown-item:not(:disabled):hover {
+/* Base background lives here (NOT inline) so the hover/keyboard highlight
+   rules below can win — inline styles beat any stylesheet selector. */
+.menu-dropdown-item {
+  background: transparent;
+}
+.menu-dropdown-item:not(:disabled):hover,
+.menu-dropdown-item:not(:disabled).is-kbd-selected {
   background: var(--plat-select);
   color: var(--plat-select-fg) !important;
 }
-.menu-dropdown-item:not(:disabled):hover span {
+.menu-dropdown-item:not(:disabled):hover span,
+.menu-dropdown-item:not(:disabled).is-kbd-selected span {
   color: var(--plat-select-fg) !important;
 }
 
@@ -381,4 +421,722 @@ body {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   THEMES
+   ────────────────────────────────────────────────────────────────────
+   :root above is the Platinum (Mac OS 8/9) baseline. The blocks below
+   redefine variables and override theme-specific selectors when the
+   <html data-theme="..."> attribute is set.
+
+   Approach: keep every component reading from --plat-* and the helper
+   classes (.chrome-outset, .title-pinstripe, .pixel-box, etc.) and only
+   change those classes / vars here. No React changes needed.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ────────── Aqua (Mac OS X 10.0–10.4) ────────────────────── */
+[data-theme="aqua"] {
+  --plat-white: #ffffff;
+  --plat-50: #f7f8fa;
+  --plat-100: #e8edf3;
+  --plat-200: #d3dbe6;
+  --plat-300: #b8c2d0;
+  --plat-400: #97a3b3;
+  --plat-500: #6f7c8e;
+  --plat-600: #4a5566;
+  --plat-700: #2f3a4a;
+  --plat-900: #0a0e14;
+  --plat-shadow: rgba(0, 0, 0, 0.28);
+  --plat-select: #3875d7;
+  --plat-select-fg: #ffffff;
+
+  --font-chicago: 'Lucida Grande', 'Helvetica Neue', system-ui, sans-serif;
+  --font-geneva: 'Lucida Grande', 'Helvetica Neue', system-ui, sans-serif;
+  --font-monaco: 'Menlo', 'Monaco', 'Courier New', monospace;
+}
+[data-theme="aqua"] body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-smooth: always;
+  image-rendering: auto;
+  letter-spacing: 0;
+  font-size: 12px;
+}
+/* Soft 1px bevel — no chunky highlight/shadow. */
+[data-theme="aqua"] .chrome-outset {
+  border: 1px solid rgba(0,0,0,0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.6),
+    inset 0 -1px 0 rgba(0,0,0,0.05);
+  border-radius: 4px;
+}
+[data-theme="aqua"] .chrome-inset {
+  border: 1px solid rgba(0,0,0,0.35);
+  box-shadow:
+    inset 0 1px 1px rgba(0,0,0,0.2);
+  border-radius: 4px;
+}
+/* Aqua title bar — soft top-to-bottom gradient, no pinstripes. */
+[data-theme="aqua"] .title-pinstripe {
+  background: linear-gradient(to bottom, #f1f4f8 0%, #c5cdd9 100%);
+}
+[data-theme="aqua"] .title-inactive {
+  background: linear-gradient(to bottom, #ececec 0%, #d4d4d4 100%);
+}
+/* Traffic lights — round colored buttons. */
+[data-theme="aqua"] .pixel-box {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.35);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.55);
+  background: radial-gradient(circle at 35% 30%, #ff9989 0%, #e2453b 80%);
+}
+[data-theme="aqua"] .pixel-box.is-collapse {
+  background: radial-gradient(circle at 35% 30%, #ffe48b 0%, #d99b1d 80%);
+}
+[data-theme="aqua"] .pixel-box.is-zoom {
+  background: radial-gradient(circle at 35% 30%, #b0eb9f 0%, #28a13a 80%);
+}
+[data-theme="aqua"] .pixel-box.is-dim {
+  background: #d4d4d4;
+  border-color: rgba(0,0,0,0.2);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
+}
+/* Hide all hover glyphs first, then re-style for Aqua. */
+[data-theme="aqua"] .group\/window:hover .pixel-box::after,
+[data-theme="aqua"] .group\/window:hover .pixel-box.is-zoom::after,
+[data-theme="aqua"] .group\/window:hover .pixel-box.is-collapse::after {
+  background: transparent;
+  inset: 0;
+  display: none;
+}
+[data-theme="aqua"] .group\/window:hover .pixel-box::after {
+  content: '×';
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'Lucida Grande', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(0,0,0,0.65);
+  background: transparent;
+  inset: 0;
+  line-height: 1;
+}
+[data-theme="aqua"] .group\/window:hover .pixel-box.is-collapse::after { content: '−'; }
+[data-theme="aqua"] .group\/window:hover .pixel-box.is-zoom::after { content: '+'; }
+
+/* Aqua traffic lights sit together on the LEFT — pull the collapse/zoom
+   group over next to the close box instead of pushing it right. */
+[data-theme="aqua"] .title-pinstripe > .window-controls.ml-auto,
+[data-theme="aqua"] .title-inactive > .window-controls.ml-auto {
+  margin-left: 5px !important;
+  margin-right: auto;
+}
+
+/* Soft drop shadow + rounded corners on windows. The window itself uses
+   .window-shadow, and the window <div> in Window.tsx sets border:1px and
+   no radius — override both via theme. */
+[data-theme="aqua"] .window-shadow {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.18);
+}
+[data-theme="aqua"] [class*="group/window"] {
+  border-radius: 6px !important;
+  border: 1px solid rgba(0,0,0,0.45) !important;
+}
+[data-theme="aqua"] .size-box {
+  background: linear-gradient(to bottom, #f1f4f8, #c5cdd9);
+  border-top: 1px solid rgba(0,0,0,0.18);
+  border-left: 1px solid rgba(0,0,0,0.18);
+  box-shadow: none;
+}
+[data-theme="aqua"] .dock-bar {
+  background: linear-gradient(to bottom, rgba(255,255,255,0.85), rgba(220,228,238,0.85));
+  border: 1px solid rgba(0,0,0,0.35);
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+}
+[data-theme="aqua"] .dock-icon-btn:hover {
+  background: rgba(56,117,215,0.18);
+  border: 1px solid transparent;
+  box-shadow: none;
+  border-radius: 6px;
+}
+[data-theme="aqua"] .dock-icon-btn:active {
+  background: rgba(56,117,215,0.32);
+  box-shadow: none;
+}
+[data-theme="aqua"] .menu-item:hover,
+[data-theme="aqua"] .menu-item.is-open {
+  background: linear-gradient(to bottom, #5895e0 0%, #3875d7 100%);
+  color: #fff;
+}
+[data-theme="aqua"] .menu-dropdown-item:not(:disabled):hover,
+[data-theme="aqua"] .menu-dropdown-item:not(:disabled).is-kbd-selected {
+  background: linear-gradient(to bottom, #5895e0, #3875d7) !important;
+  color: #fff !important;
+}
+[data-theme="aqua"] .finder-row:hover {
+  background: linear-gradient(to bottom, #5895e0, #3875d7) !important;
+  color: #fff !important;
+}
+[data-theme="aqua"] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(to right, #c5cdd9, #97a3b3);
+  border: 1px solid rgba(0,0,0,0.3);
+  border-radius: 6px;
+  box-shadow: none;
+}
+[data-theme="aqua"] ::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.04);
+  border-left: 1px solid rgba(0,0,0,0.1);
+}
+
+/* ────────── Windows XP · Luna Blue (2001) ────────────────── */
+[data-theme="winxp"] {
+  --plat-white: #ffffff;
+  --plat-50: #f5f7fb;
+  --plat-100: #ece9d8;        /* XP toolbar beige */
+  --plat-200: #d6d3c0;
+  --plat-300: #b8b5a1;
+  --plat-400: #9d9a87;
+  --plat-500: #716e5f;
+  --plat-600: #494738;
+  --plat-700: #2a281c;
+  --plat-900: #000000;
+  --plat-shadow: rgba(0, 0, 0, 0.35);
+  --plat-select: #316ac5;
+  --plat-select-fg: #ffffff;
+
+  --font-chicago: 'Tahoma', 'Verdana', 'Segoe UI', system-ui, sans-serif;
+  --font-geneva: 'Tahoma', 'Verdana', 'Segoe UI', system-ui, sans-serif;
+  --font-monaco: 'Consolas', 'Lucida Console', 'Courier New', monospace;
+}
+[data-theme="winxp"] body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  image-rendering: auto;
+  letter-spacing: 0;
+  font-size: 11px;
+}
+/* Window border: rounded top, blue outline. */
+[data-theme="winxp"] [class*="group/window"] {
+  border-radius: 8px 8px 0 0 !important;
+  border: 1px solid #0046ad !important;
+}
+[data-theme="winxp"] .window-shadow {
+  box-shadow: 0 6px 20px rgba(0,0,0,0.32), 0 2px 4px rgba(0,0,0,0.2);
+}
+/* Blue title bar — the iconic Luna look. */
+[data-theme="winxp"] .title-pinstripe {
+  background: linear-gradient(to bottom,
+    #0058e6 0%, #2873e3 8%, #1c69d2 60%, #0a4dad 100%);
+  color: #ffffff;
+  border-bottom: 1px solid #003fa3;
+}
+[data-theme="winxp"] .title-inactive {
+  background: linear-gradient(to bottom, #7a96df 0%, #6589d4 60%, #4972c0 100%);
+}
+[data-theme="winxp"] .title-pinstripe > div.absolute,
+[data-theme="winxp"] .title-inactive > div.absolute {
+  background: transparent !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.45);
+}
+/* Windows puts every control on the RIGHT in minimize/maximize/close order,
+   with the title left-aligned. The close box is the first flex child — give
+   it order:2 so it lands after the (ml-auto) collapse/zoom group. */
+[data-theme="winxp"] .title-pinstripe > .window-controls:first-child,
+[data-theme="winxp"] .title-inactive > .window-controls:first-child,
+[data-theme="win98"] .title-pinstripe > .window-controls:first-child,
+[data-theme="win98"] .title-inactive > .window-controls:first-child {
+  order: 2;
+  margin-left: 2px;
+}
+[data-theme="winxp"] .title-pinstripe > div.absolute,
+[data-theme="winxp"] .title-inactive > div.absolute,
+[data-theme="win98"] .title-pinstripe > div.absolute,
+[data-theme="win98"] .title-inactive > div.absolute {
+  left: 6px !important;
+  transform: none !important;
+}
+/* Buttons: chunky pillowed Luna look. Close = red, min/zoom = blue tint. */
+[data-theme="winxp"] .pixel-box {
+  width: 18px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid #1042a0;
+  background: linear-gradient(to bottom, #ff928a 0%, #df3526 60%, #b81e10 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+}
+[data-theme="winxp"] .pixel-box.is-collapse,
+[data-theme="winxp"] .pixel-box.is-zoom {
+  background: linear-gradient(to bottom, #5b95e5 0%, #2c6dd4 60%, #1c52ab 100%);
+}
+[data-theme="winxp"] .pixel-box:hover { filter: brightness(1.1); }
+[data-theme="winxp"] .pixel-box.is-dim {
+  background: linear-gradient(to bottom, #b6c6dd, #6f86a8);
+  border-color: #4a597a;
+  box-shadow: none;
+}
+/* Glyphs always visible on Windows (not on-hover like Mac). */
+[data-theme="winxp"] .pixel-box::after,
+[data-theme="winxp"] .group\/window:hover .pixel-box::after,
+[data-theme="winxp"] .group\/window:hover .pixel-box.is-zoom::after,
+[data-theme="winxp"] .group\/window:hover .pixel-box.is-collapse::after {
+  content: '×';
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inset: 0;
+  background: transparent;
+  font-family: 'Marlett', 'Tahoma', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.45);
+  line-height: 1;
+}
+[data-theme="winxp"] .pixel-box.is-collapse::after,
+[data-theme="winxp"] .group\/window:hover .pixel-box.is-collapse::after { content: '_'; }
+[data-theme="winxp"] .pixel-box.is-zoom::after,
+[data-theme="winxp"] .group\/window:hover .pixel-box.is-zoom::after { content: '□'; }
+/* Chrome: subtle bevels. */
+[data-theme="winxp"] .chrome-outset {
+  border: 1px solid #6f86a8;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.8),
+    inset 0 -1px 0 rgba(0,0,0,0.06);
+  border-radius: 3px;
+}
+[data-theme="winxp"] .chrome-inset {
+  border: 1px solid #6f86a8;
+  box-shadow: inset 0 1px 1px rgba(0,0,0,0.15);
+  border-radius: 3px;
+}
+[data-theme="winxp"] .size-box {
+  background: linear-gradient(to bottom, #ece9d8, #c6c3b0);
+  border-top: 1px solid #6f86a8;
+  border-left: 1px solid #6f86a8;
+  box-shadow: none;
+}
+/* Taskbar-style dock. */
+[data-theme="winxp"] .dock-bar {
+  background: linear-gradient(to bottom,
+    #245edb 0%, #3a7be0 8%, #245edb 14%, #245edb 88%, #1c44b7 100%);
+  border: 1px solid #0046ad;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.25) inset, 0 4px 14px rgba(0,0,0,0.32);
+}
+[data-theme="winxp"] .dock-icon-btn:hover {
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.25);
+  box-shadow: none;
+  border-radius: 3px;
+}
+[data-theme="winxp"] .dock-icon-btn:active {
+  background: rgba(0,0,0,0.18);
+  box-shadow: none;
+}
+[data-theme="winxp"] .menu-item:hover,
+[data-theme="winxp"] .menu-item.is-open {
+  background: linear-gradient(to bottom, #4a8fe7, #316ac5);
+  color: #fff;
+}
+[data-theme="winxp"] .menu-dropdown-item:not(:disabled):hover {
+  background: linear-gradient(to bottom, #4a8fe7, #316ac5) !important;
+  color: #fff !important;
+}
+[data-theme="winxp"] .finder-row:hover {
+  background: linear-gradient(to bottom, #4a8fe7, #316ac5) !important;
+  color: #fff !important;
+}
+[data-theme="winxp"] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(to right, #f5f5f0, #c6c3b0);
+  border: 1px solid #6f86a8;
+  border-radius: 2px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+}
+[data-theme="winxp"] ::-webkit-scrollbar-track {
+  background: #ece9d8;
+  border-left: 1px solid #b8b5a1;
+}
+
+/* XP keyboard-selected menu item mirrors its hover gradient. */
+[data-theme="winxp"] .menu-dropdown-item:not(:disabled).is-kbd-selected {
+  background: linear-gradient(to bottom, #4a8fe7, #316ac5) !important;
+  color: #fff !important;
+}
+
+/* ────────── Windows 98 · Classic (1998) ──────────────────── */
+[data-theme="win98"] {
+  --plat-white: #ffffff;
+  --plat-50: #ffffff;
+  --plat-100: #c0c0c0;        /* The famous Win9x gray */
+  --plat-200: #c0c0c0;
+  --plat-300: #a0a0a0;
+  --plat-400: #808080;
+  --plat-500: #606060;
+  --plat-600: #404040;
+  --plat-700: #2a2a2a;
+  --plat-900: #000000;
+  --plat-shadow: rgba(0, 0, 0, 0.5);
+  --plat-select: #000080;
+  --plat-select-fg: #ffffff;
+
+  --font-chicago: 'MS Sans Serif', 'Tahoma', 'Verdana', system-ui, sans-serif;
+  --font-geneva: 'MS Sans Serif', 'Tahoma', 'Verdana', system-ui, sans-serif;
+  --font-monaco: 'Fixedsys', 'Lucida Console', 'Courier New', monospace;
+}
+[data-theme="win98"] body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  image-rendering: auto;
+  letter-spacing: 0;
+  font-size: 11px;
+}
+/* Classic 2px raised bevel — white top-left, dark bottom-right. */
+[data-theme="win98"] .chrome-outset {
+  border: 1px solid #000;
+  box-shadow:
+    inset 1px 1px 0 #ffffff,
+    inset -1px -1px 0 #808080,
+    inset 2px 2px 0 #dfdfdf,
+    inset -2px -2px 0 #404040;
+}
+[data-theme="win98"] .chrome-inset {
+  border: 1px solid #000;
+  box-shadow:
+    inset 1px 1px 0 #808080,
+    inset -1px -1px 0 #ffffff,
+    inset 2px 2px 0 #404040,
+    inset -2px -2px 0 #dfdfdf;
+}
+[data-theme="win98"] [class*="group/window"] {
+  border-radius: 0 !important;
+  border: 0 !important;
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #404040,
+    inset 2px 2px 0 #c0c0c0,
+    inset -2px -2px 0 #808080,
+    0 0 0 1px #000 !important;
+}
+[data-theme="win98"] .window-shadow {
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #404040,
+    inset 2px 2px 0 #c0c0c0,
+    inset -2px -2px 0 #808080,
+    0 0 0 1px #000,
+    1px 1px 0 rgba(0,0,0,0.5);
+}
+/* Navy title bar with white text. */
+[data-theme="win98"] .title-pinstripe {
+  background: linear-gradient(to right, #000080 0%, #1084d0 100%);
+  color: #ffffff;
+  border-bottom: none;
+}
+[data-theme="win98"] .title-inactive {
+  background: linear-gradient(to right, #808080 0%, #b5b5b5 100%);
+}
+[data-theme="win98"] .title-pinstripe > div.absolute,
+[data-theme="win98"] .title-inactive > div.absolute {
+  background: transparent !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+/* Square 3D-bevel buttons. */
+[data-theme="win98"] .pixel-box {
+  width: 16px;
+  height: 14px;
+  border-radius: 0;
+  border: 1px solid #000;
+  background: #c0c0c0;
+  box-shadow:
+    inset 1px 1px 0 #ffffff,
+    inset -1px -1px 0 #808080,
+    inset 2px 2px 0 #dfdfdf,
+    inset -2px -2px 0 #404040;
+}
+[data-theme="win98"] .pixel-box:active {
+  box-shadow:
+    inset 1px 1px 0 #404040,
+    inset -1px -1px 0 #dfdfdf,
+    inset 2px 2px 0 #808080,
+    inset -2px -2px 0 #ffffff;
+}
+[data-theme="win98"] .pixel-box.is-dim { box-shadow: none; background: #b0b0b0; }
+[data-theme="win98"] .pixel-box::after,
+[data-theme="win98"] .group\/window:hover .pixel-box::after,
+[data-theme="win98"] .group\/window:hover .pixel-box.is-zoom::after,
+[data-theme="win98"] .group\/window:hover .pixel-box.is-collapse::after {
+  content: '×';
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inset: 0;
+  background: transparent;
+  font-family: 'Marlett', 'Tahoma', sans-serif;
+  font-size: 12px;
+  font-weight: 900;
+  color: #000;
+  line-height: 1;
+}
+[data-theme="win98"] .pixel-box.is-collapse::after,
+[data-theme="win98"] .group\/window:hover .pixel-box.is-collapse::after { content: '_'; }
+[data-theme="win98"] .pixel-box.is-zoom::after,
+[data-theme="win98"] .group\/window:hover .pixel-box.is-zoom::after { content: '□'; }
+[data-theme="win98"] .size-box {
+  background: #c0c0c0;
+  border-top: 0;
+  border-left: 0;
+  box-shadow:
+    inset 1px 1px 0 #ffffff,
+    inset -1px -1px 0 #808080;
+  background-image:
+    linear-gradient(135deg,
+      transparent 0 4px,
+      #404040 4px 5px,
+      transparent 5px 7px,
+      #404040 7px 8px,
+      transparent 8px 10px,
+      #404040 10px 11px,
+      transparent 11px);
+}
+[data-theme="win98"] .dock-bar {
+  background: #c0c0c0;
+  border-radius: 0;
+  border: 1px solid #000;
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #404040,
+    inset 2px 2px 0 #c0c0c0,
+    inset -2px -2px 0 #808080;
+}
+[data-theme="win98"] .dock-icon-btn:hover {
+  background: transparent;
+  border: 1px solid #000;
+  box-shadow:
+    inset 1px 1px 0 #ffffff,
+    inset -1px -1px 0 #808080;
+}
+[data-theme="win98"] .dock-icon-btn:active {
+  box-shadow:
+    inset 1px 1px 0 #404040,
+    inset -1px -1px 0 #ffffff;
+}
+[data-theme="win98"] .menu-item:hover,
+[data-theme="win98"] .menu-item.is-open {
+  background: #000080;
+  color: #ffffff;
+}
+[data-theme="win98"] .menu-dropdown-item:not(:disabled):hover {
+  background: #000080 !important;
+  color: #ffffff !important;
+}
+[data-theme="win98"] .finder-row:hover {
+  background: #000080 !important;
+  color: #ffffff !important;
+}
+[data-theme="win98"] ::-webkit-scrollbar-thumb {
+  background: #c0c0c0;
+  border: 1px solid #000;
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #404040;
+  border-radius: 0;
+}
+[data-theme="win98"] ::-webkit-scrollbar-track {
+  background: #c0c0c0;
+  background-image:
+    repeating-linear-gradient(45deg, #ffffff 0 1px, transparent 1px 2px),
+    repeating-linear-gradient(45deg, transparent 0 1px, #808080 1px 2px);
+  border: 0;
+}
+
+/* ────────── NeXTSTEP · NeXT Computer (1989) ──────────────── */
+[data-theme="nextstep"] {
+  --plat-white: #ffffff;
+  --plat-50: #d6d8dc;
+  --plat-100: #bcc0c6;
+  --plat-200: #a3a8b0;
+  --plat-300: #8e9299;
+  --plat-400: #6a6f78;
+  --plat-500: #4a4f58;
+  --plat-600: #2e333d;
+  --plat-700: #1a1e25;
+  --plat-900: #000000;
+  --plat-shadow: rgba(0, 0, 0, 0.55);
+  --plat-select: #2a3b56;
+  --plat-select-fg: #ffffff;
+
+  --font-chicago: 'Helvetica Neue', 'Helvetica', 'Arial', system-ui, sans-serif;
+  --font-geneva: 'Helvetica Neue', 'Helvetica', 'Arial', system-ui, sans-serif;
+  --font-monaco: 'Menlo', 'Monaco', 'Courier New', monospace;
+}
+[data-theme="nextstep"] body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  image-rendering: auto;
+  letter-spacing: 0;
+  font-size: 12px;
+  color: #ffffff;
+  background-color: #535a64;
+}
+/* Stark black borders, hard shadows, no rounding. */
+[data-theme="nextstep"] [class*="group/window"] {
+  border-radius: 0 !important;
+  border: 1px solid #000 !important;
+  background: #a3a8b0 !important;
+}
+[data-theme="nextstep"] .window-shadow {
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.55);
+}
+/* Iconic NeXT title bar: diagonal hatch on dark slate. */
+[data-theme="nextstep"] .title-pinstripe {
+  background-color: #4a4f58;
+  background-image:
+    repeating-linear-gradient(135deg,
+      rgba(255,255,255,0.06) 0 1px,
+      transparent 1px 3px),
+    repeating-linear-gradient(45deg,
+      rgba(0,0,0,0.18) 0 1px,
+      transparent 1px 3px);
+  border-bottom: 1px solid #000;
+}
+[data-theme="nextstep"] .title-inactive {
+  background: #6a6f78;
+  border-bottom: 1px solid #000;
+}
+[data-theme="nextstep"] .title-pinstripe > div.absolute,
+[data-theme="nextstep"] .title-inactive > div.absolute {
+  background: #4a4f58 !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  padding: 0 6px !important;
+}
+/* Severe chunky 3D bevels — NeXT was famous for these. */
+[data-theme="nextstep"] .chrome-outset {
+  border: 1px solid #000;
+  background: #a3a8b0;
+  box-shadow:
+    inset 1px 1px 0 #d6d8dc,
+    inset -1px -1px 0 #4a4f58,
+    inset 2px 2px 0 #bcc0c6,
+    inset -2px -2px 0 #2e333d;
+}
+[data-theme="nextstep"] .chrome-inset {
+  border: 1px solid #000;
+  background: #8e9299;
+  box-shadow:
+    inset 1px 1px 0 #2e333d,
+    inset -1px -1px 0 #bcc0c6,
+    inset 2px 2px 0 #4a4f58,
+    inset -2px -2px 0 #a3a8b0;
+}
+/* Buttons: stark square bevels. */
+[data-theme="nextstep"] .pixel-box {
+  width: 14px;
+  height: 14px;
+  border-radius: 0;
+  border: 1px solid #000;
+  background: #a3a8b0;
+  box-shadow:
+    inset 1px 1px 0 #d6d8dc,
+    inset -1px -1px 0 #4a4f58;
+}
+[data-theme="nextstep"] .pixel-box:active {
+  box-shadow:
+    inset 1px 1px 0 #2e333d,
+    inset -1px -1px 0 #d6d8dc;
+}
+[data-theme="nextstep"] .pixel-box.is-dim {
+  background: #8e9299;
+  box-shadow: none;
+}
+[data-theme="nextstep"] .group\/window:hover .pixel-box::after,
+[data-theme="nextstep"] .group\/window:hover .pixel-box.is-zoom::after,
+[data-theme="nextstep"] .group\/window:hover .pixel-box.is-collapse::after {
+  content: '';
+  display: block;
+  inset: 4px;
+  background: #000;
+  width: 6px;
+  height: 6px;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+[data-theme="nextstep"] .group\/window:hover .pixel-box.is-collapse::after {
+  width: 6px;
+  height: 2px;
+}
+[data-theme="nextstep"] .group\/window:hover .pixel-box.is-zoom::after {
+  background: transparent;
+  border: 2px solid #000;
+  width: 7px;
+  height: 7px;
+}
+[data-theme="nextstep"] .size-box {
+  background: #a3a8b0;
+  border-top: 1px solid #000;
+  border-left: 1px solid #000;
+  box-shadow:
+    inset 1px 1px 0 #d6d8dc,
+    inset -1px -1px 0 #4a4f58;
+}
+[data-theme="nextstep"] .dock-bar {
+  background: #4a4f58;
+  background-image:
+    repeating-linear-gradient(135deg,
+      rgba(255,255,255,0.05) 0 1px,
+      transparent 1px 3px);
+  border: 1px solid #000;
+  border-radius: 0;
+  box-shadow:
+    inset 1px 1px 0 #6a6f78,
+    inset -1px -1px 0 #1a1e25,
+    4px 4px 0 rgba(0,0,0,0.55);
+}
+[data-theme="nextstep"] .dock-icon-btn:hover {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid #000;
+  box-shadow:
+    inset 1px 1px 0 #6a6f78,
+    inset -1px -1px 0 #1a1e25;
+}
+[data-theme="nextstep"] .dock-icon-btn:active {
+  box-shadow:
+    inset 1px 1px 0 #1a1e25,
+    inset -1px -1px 0 #6a6f78;
+}
+[data-theme="nextstep"] .menu-item:hover,
+[data-theme="nextstep"] .menu-item.is-open {
+  background: #2a3b56;
+  color: #ffffff;
+}
+[data-theme="nextstep"] .menu-dropdown-item:not(:disabled):hover {
+  background: #2a3b56 !important;
+  color: #ffffff !important;
+}
+[data-theme="nextstep"] .finder-row:hover {
+  background: #2a3b56 !important;
+  color: #ffffff !important;
+}
+[data-theme="nextstep"] ::-webkit-scrollbar-thumb {
+  background: #a3a8b0;
+  border: 1px solid #000;
+  box-shadow:
+    inset 1px 1px 0 #d6d8dc,
+    inset -1px -1px 0 #4a4f58;
+  border-radius: 0;
+}
+[data-theme="nextstep"] ::-webkit-scrollbar-track {
+  background: #6a6f78;
+  background-image:
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 3px);
 }

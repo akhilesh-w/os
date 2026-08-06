@@ -4,8 +4,9 @@ import DockIcon from './DockIcon';
 
 export default function Dock() {
   const { windows, openWindow } = useWindowStore();
-  const isOpen = (appId: string) =>
-    windows.some(w => w.appId === appId && !w.isMinimized);
+  // Minimized still counts as open — the app hasn't quit, its window is
+  // just collapsed into the dock (clicking the icon restores it).
+  const isOpen = (appId: string) => windows.some(w => w.appId === appId);
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9998]">

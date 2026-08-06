@@ -88,7 +88,6 @@ export default function ContextMenu({ x, y, items, onClose }: Props) {
               alignItems: 'center',
               width: '100%',
               padding: '1px 16px 1px 6px',
-              background: 'transparent',
               border: 'none',
               color: disabled ? 'var(--plat-400)' : 'var(--plat-900)',
               cursor: 'default',

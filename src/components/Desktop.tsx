@@ -76,6 +76,17 @@ export default function Desktop() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  // Keep windows reachable when the viewport shrinks — same clamp the store
+  // applies on rehydrate, but live on every resize.
+  useEffect(() => {
+    const { windows: wins, updateWindowPosition } = useWindowStore.getState();
+    for (const w of wins) {
+      const x = Math.min(Math.max(w.x, -w.width + 40), viewport.w - 40);
+      const y = Math.min(Math.max(w.y, MENU_BAR_HEIGHT), viewport.h - 40);
+      if (x !== w.x || y !== w.y) updateWindowPosition(w.id, x, y);
+    }
+  }, [viewport.w, viewport.h]);
+
   const resolvedPositions = useMemo(() => {
     const out: Record<string, IconPosition> = {};
     for (const icon of DESKTOP_ICONS) {
@@ -198,6 +209,12 @@ export default function Desktop() {
             onDoubleClick={e => {
               e.stopPropagation();
               handleActivate(icon);
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleActivate(icon);
+              }
             }}
           >
             <PixelIcon

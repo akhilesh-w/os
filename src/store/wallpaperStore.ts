@@ -192,6 +192,29 @@ export const WALLPAPERS: Wallpaper[] = [
       backgroundSize: '60px 80px, 90px 120px, 30px 40px',
     },
   },
+  {
+    id: 'bliss',
+    name: 'Bliss',
+    style: {
+      background:
+        'linear-gradient(to bottom, #4a8edf 0%, #87b6e9 45%, #6fbf6f 58%, #3aa14a 100%)',
+    },
+  },
+  {
+    id: 'win98-teal',
+    name: 'Win98 Teal',
+    style: { backgroundColor: '#008080' },
+  },
+  {
+    id: 'nextstep-slate',
+    name: 'NeXTSTEP Slate',
+    style: {
+      backgroundColor: '#535a64',
+      backgroundImage:
+        'repeating-linear-gradient(45deg, rgba(0,0,0,0.18) 0 1px, transparent 1px 4px),' +
+        'repeating-linear-gradient(-45deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 4px)',
+    },
+  },
 ];
 
 const WALLPAPERS_BY_ID = Object.fromEntries(WALLPAPERS.map(w => [w.id, w]));

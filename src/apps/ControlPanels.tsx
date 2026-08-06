@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { WALLPAPERS, useWallpaperStore } from '../store/wallpaperStore';
 import { useSoundStore } from '../store/soundStore';
+import { useThemeStore } from '../store/themeStore';
+import { THEMES, getTheme } from '../lib/themes';
 import { playClick, playBeep, playOpen, playClose, playStartup } from '../lib/sounds';
 import PixelIcon from '../components/PixelIcon';
 
@@ -116,8 +118,45 @@ export default function ControlPanels() {
 function AppearancePanel() {
   const currentId = useWallpaperStore(s => s.currentId);
   const setCurrent = useWallpaperStore(s => s.setCurrent);
+  const themeId = useThemeStore(s => s.currentId);
+  const setTheme = useThemeStore(s => s.setCurrent);
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
+      <PanelTitle>Theme</PanelTitle>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+        {THEMES.map(t => {
+          const sel = themeId === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTheme(t.id)}
+              className={sel ? 'chrome-inset' : 'chrome-outset'}
+              style={{
+                background: sel ? 'var(--plat-100)' : 'var(--plat-200)',
+                padding: 8,
+                textAlign: 'left',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+                cursor: 'default',
+                fontFamily: 'inherit',
+              }}
+              aria-pressed={sel}
+            >
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--plat-900)' }}>
+                {t.name}
+              </span>
+              <span style={{ fontSize: 10, color: 'var(--plat-700)', lineHeight: 1.3 }}>
+                {t.description}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ fontSize: 10, color: 'var(--plat-600)', marginTop: -2 }}>
+        Selecting a theme also snaps the wallpaper to that theme's default.
+      </div>
+
       <PanelTitle>Desktop Pattern</PanelTitle>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
         {WALLPAPERS.map(w => {
@@ -268,6 +307,8 @@ function SoundButton({
 }
 
 function AboutMacPanel() {
+  const themeId = useThemeStore(s => s.currentId);
+  const theme = getTheme(themeId);
   return (
     <div className="flex flex-col gap-3">
       <div
@@ -283,7 +324,7 @@ function AboutMacPanel() {
         <div>
           <div style={{ fontSize: 16, fontWeight: 700 }}>os.akhileshw.xyz</div>
           <div style={{ fontSize: 11, color: 'var(--plat-700)' }}>
-            Macintosh System Platinum · v1.0
+            {theme.systemLabel} · v1.0
           </div>
         </div>
       </div>

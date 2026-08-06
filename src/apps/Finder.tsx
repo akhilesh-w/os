@@ -6,6 +6,7 @@ import { useWindowId } from '../components/Window';
 import { playClick } from '../lib/sounds';
 import { PLAYLIST } from '../lib/music';
 import { POSTS } from '../lib/posts';
+import { useWindowCommands } from '../lib/windowCommands';
 
 interface Entry {
   name: string;
@@ -136,6 +137,20 @@ export default function Finder() {
   useEffect(() => {
     if (windowId) setWindowTitle(windowId, location.label);
   }, [windowId, location.label, setWindowTitle]);
+
+  // Publish our menu-controllable commands so the MenuBar's View menu can
+  // drive `viewMode`, and File → New Finder Window points back here.
+  useEffect(() => {
+    if (!windowId) return;
+    useWindowCommands.getState().set(windowId, {
+      view: viewMode,
+      setView: setViewMode,
+      newDocument: () => openWindow('finder'),
+      newDocumentLabel: 'New Finder Window',
+      newDocumentShortcut: '⌘N',
+    });
+    return () => useWindowCommands.getState().clear(windowId);
+  }, [windowId, viewMode, openWindow]);
 
   const navigateTo = (locId: string) => {
     setCurrentLocId(locId);

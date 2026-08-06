@@ -1,4 +1,6 @@
 import { useSoundStore } from '../store/soundStore';
+import { useThemeStore } from '../store/themeStore';
+import { getTheme } from './themes';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -6,6 +8,10 @@ let master: GainNode | null = null;
 interface AudioPipe {
   ctx: AudioContext;
   master: GainNode;
+}
+
+function currentProfile() {
+  return getTheme(useThemeStore.getState().currentId).soundProfile;
 }
 
 function ensure(): AudioPipe | null {
@@ -60,37 +66,121 @@ export function playClick() {
   if (!pipe) return;
   const { ctx: c, master: out } = pipe;
   const now = c.currentTime;
+  const profile = currentProfile();
   const osc = c.createOscillator();
   const gain = c.createGain();
-  osc.type = 'square';
-  osc.frequency.value = 3600;
-  gain.gain.setValueAtTime(0.001, now);
-  gain.gain.linearRampToValueAtTime(0.08, now + 0.002);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+  if (profile === 'aqua') {
+    osc.type = 'sine';
+    osc.frequency.value = 4200;
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.06, now + 0.003);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+  } else if (profile === 'winxp') {
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(2800, now);
+    osc.frequency.exponentialRampToValueAtTime(3600, now + 0.05);
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.07, now + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+  } else if (profile === 'win98') {
+    osc.type = 'square';
+    osc.frequency.value = 2200;
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.09, now + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+  } else if (profile === 'nextstep') {
+    // Metallic — two stacked oscillators (square + slightly detuned triangle).
+    osc.type = 'square';
+    osc.frequency.value = 3200;
+    const osc2 = c.createOscillator();
+    osc2.type = 'triangle';
+    osc2.frequency.value = 3160;
+    const g2 = c.createGain();
+    g2.gain.setValueAtTime(0.001, now);
+    g2.gain.linearRampToValueAtTime(0.04, now + 0.002);
+    g2.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+    osc2.connect(g2).connect(out);
+    osc2.start(now);
+    osc2.stop(now + 0.04);
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.05, now + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+  } else {
+    osc.type = 'square';
+    osc.frequency.value = 3600;
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.08, now + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+  }
   osc.connect(gain).connect(out);
   osc.start(now);
-  osc.stop(now + 0.04);
+  osc.stop(now + 0.06);
 }
 
-/** Two short triangle-wave beeps — classic "Sosumi"-style error alert. */
+/** Two short beeps — classic "Sosumi"-style error alert. Theme-aware. */
 export function playBeep() {
   const pipe = ensure();
   if (!pipe) return;
   const { ctx: c, master: out } = pipe;
-  const beep = (start: number) => {
+  const profile = currentProfile();
+  const oneBeep = (start: number) => {
     const osc = c.createOscillator();
     const gain = c.createGain();
-    osc.type = 'triangle';
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.001, start);
-    gain.gain.linearRampToValueAtTime(0.25, start + 0.005);
-    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.11);
+    if (profile === 'aqua') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(720, start);
+      osc.frequency.exponentialRampToValueAtTime(900, start + 0.12);
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.linearRampToValueAtTime(0.22, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.22);
+      osc.start(start);
+      osc.stop(start + 0.25);
+    } else if (profile === 'winxp') {
+      // Bright ding-style chime
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(660, start);
+      osc.frequency.exponentialRampToValueAtTime(990, start + 0.08);
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.linearRampToValueAtTime(0.28, start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.45);
+      osc.start(start);
+      osc.stop(start + 0.5);
+    } else if (profile === 'win98') {
+      // Short electronic blip (close to "tada" first hit)
+      osc.type = 'square';
+      osc.frequency.value = 660;
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.linearRampToValueAtTime(0.3, start + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.18);
+      osc.start(start);
+      osc.stop(start + 0.2);
+    } else if (profile === 'nextstep') {
+      // Tonal mid-range bell — NeXT had distinctive alert chimes
+      osc.type = 'sine';
+      osc.frequency.value = 600;
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.linearRampToValueAtTime(0.32, start + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.5);
+      osc.start(start);
+      osc.stop(start + 0.55);
+    } else {
+      osc.type = 'triangle';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.linearRampToValueAtTime(0.25, start + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.11);
+      osc.start(start);
+      osc.stop(start + 0.13);
+    }
     osc.connect(gain).connect(out);
-    osc.start(start);
-    osc.stop(start + 0.13);
   };
-  beep(c.currentTime);
-  beep(c.currentTime + 0.13);
+  // Single chime for modern themes, double-beep for classic Mac
+  if (profile === 'platinum') {
+    oneBeep(c.currentTime);
+    oneBeep(c.currentTime + 0.13);
+  } else {
+    oneBeep(c.currentTime);
+  }
 }
 
 function whoosh(
@@ -127,18 +217,55 @@ function whoosh(
   src.stop(now + dur + 0.01);
 }
 
-/** Window opening — short ascending whoosh. */
+/** Window opening — short ascending whoosh. Theme-aware. */
 export function playOpen() {
   const pipe = ensure();
   if (!pipe) return;
-  whoosh(pipe.ctx, pipe.master, 500, 2400, 140);
+  const profile = currentProfile();
+  if (profile === 'win98') {
+    // Quick electronic chirp — Win98 had a distinct minimize/maximize sound
+    const { ctx: c, master: out } = pipe;
+    const now = c.currentTime;
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(400, now);
+    osc.frequency.exponentialRampToValueAtTime(1800, now + 0.05);
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.12, now + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+    osc.connect(gain).connect(out);
+    osc.start(now);
+    osc.stop(now + 0.08);
+    return;
+  }
+  const peak = profile === 'aqua' || profile === 'winxp' || profile === 'nextstep' ? 0.22 : 0.35;
+  whoosh(pipe.ctx, pipe.master, 500, 2400, 140, peak);
 }
 
-/** Window closing — descending whoosh. */
+/** Window closing — descending whoosh. Theme-aware. */
 export function playClose() {
   const pipe = ensure();
   if (!pipe) return;
-  whoosh(pipe.ctx, pipe.master, 2200, 350, 120, 0.3);
+  const profile = currentProfile();
+  if (profile === 'win98') {
+    const { ctx: c, master: out } = pipe;
+    const now = c.currentTime;
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(1800, now);
+    osc.frequency.exponentialRampToValueAtTime(400, now + 0.05);
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.1, now + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+    osc.connect(gain).connect(out);
+    osc.start(now);
+    osc.stop(now + 0.08);
+    return;
+  }
+  const peak = profile === 'aqua' || profile === 'winxp' || profile === 'nextstep' ? 0.2 : 0.3;
+  whoosh(pipe.ctx, pipe.master, 2200, 350, 120, peak);
 }
 
 /** F# major chord with bell-like decay — the iconic Mac startup. Roughly Quadra-flavored. */

@@ -17,7 +17,6 @@ const RAW_SRC = import.meta.glob('/src/**/*.{ts,tsx,css,svg}', {
 const RAW_ROOT = import.meta.glob(
   [
     '/README.md',
-    '/CLAUDE.md',
     '/TASKS.md',
     '/LICENSE',
     '/brand.md',

@@ -4,9 +4,18 @@ import MenuBar from './components/MenuBar';
 import Desktop from './components/Desktop';
 import Dock from './components/Dock';
 import Screensaver from './components/Screensaver';
+import Spotlight from './components/Spotlight';
+import AppSwitcher from './components/AppSwitcher';
 import { useScreensaverStore } from './store/screensaverStore';
+import { useThemeStore } from './store/themeStore';
+import { useSpotlightStore } from './store/spotlightStore';
 
 export default function App() {
+  const themeId = useThemeStore(s => s.currentId);
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', themeId);
+  }, [themeId]);
+
   const idleMs = useScreensaverStore(s => s.idleMs);
   const enabled = useScreensaverStore(s => s.enabled);
   const forceOn = useScreensaverStore(s => s.forceOn);
@@ -32,11 +41,36 @@ export default function App() {
 
   const showScreensaver = (enabled && idle) || forceOn;
 
+  // Global shortcut for Spotlight: ⌘K and ⌘Space toggle it. We intentionally
+  // do NOT intercept these inside text inputs (so typing in TextEdit / Finder
+  // search etc. is untouched).
+  const toggleSpotlight = useSpotlightStore(s => s.toggle);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName?.toLowerCase();
+      const editingText =
+        tag === 'input' || tag === 'textarea' || (t?.isContentEditable ?? false);
+      const cmd = e.metaKey || e.ctrlKey;
+      if (cmd && !e.shiftKey && !e.altKey && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        toggleSpotlight();
+      } else if (cmd && e.code === 'Space' && !editingText) {
+        e.preventDefault();
+        toggleSpotlight();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [toggleSpotlight]);
+
   return (
     <div className="w-screen h-screen overflow-hidden select-none">
       <MenuBar />
       <Desktop />
       <Dock />
+      <AppSwitcher />
+      <Spotlight />
       <AnimatePresence>
         {showScreensaver && (
           <Screensaver
