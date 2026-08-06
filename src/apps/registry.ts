@@ -1,15 +1,21 @@
+import { lazy } from 'react';
 import type { AppDefinition } from '../types';
-import Finder from './Finder';
-import Terminal from './Terminal';
-import About from './About';
-import Music from './Music';
-import ControlPanels from './ControlPanels';
-import Launcher from './Launcher';
-import TextEdit from './TextEdit';
-import Readme from './Readme';
-import Calculator from './Calculator';
-import InternetExplorer from './InternetExplorer';
-import Stickies from './Stickies';
+
+// Every app is a lazy chunk so the initial bundle carries only the shell
+// (window chrome, dock, menu bar). Terminal also drags in the whole VFS
+// seed (raw source of the repo) and TextEdit pulls react-markdown — the
+// two heaviest chunks — so this split is what keeps first paint light.
+const Finder = lazy(() => import('./Finder'));
+const Terminal = lazy(() => import('./Terminal'));
+const About = lazy(() => import('./About'));
+const Music = lazy(() => import('./Music'));
+const ControlPanels = lazy(() => import('./ControlPanels'));
+const Launcher = lazy(() => import('./Launcher'));
+const TextEdit = lazy(() => import('./TextEdit'));
+const Readme = lazy(() => import('./Readme'));
+const Calculator = lazy(() => import('./Calculator'));
+const InternetExplorer = lazy(() => import('./InternetExplorer'));
+const Stickies = lazy(() => import('./Stickies'));
 
 export const APPS: AppDefinition[] = [
   { id: 'launcher', name: 'Launcher', icon: 'launcher', component: Launcher, defaultWidth: 420, defaultHeight: 320, hideFromLauncher: true },

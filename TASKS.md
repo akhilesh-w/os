@@ -47,7 +47,7 @@ Known limitations, deliberately left: ⌘W/⌘Q are browser-reserved and may clo
 
 | # | Task | Description |
 |---|------|-------------|
-| R1 | Code-split the bundle | Production JS is ~1 MB (290 kB gzip) in one chunk — Vite warns on build. Lazy-load heavy apps (`react-markdown` in TextEdit is the main offender) via `React.lazy` per registry entry. |
+| R1 | ~~Code-split the bundle~~ ✓ | ~~Production JS is ~1 MB (290 kB gzip) in one chunk — Vite warns on build.~~ Done — every app component in `registry.ts` is now `React.lazy`, rendered inside a `<Suspense>` with a plain white fallback in `Desktop.tsx`. Main bundle 1,025 kB → 389 kB (290 → 121 kB gzip). Terminal (413 kB — it drags the whole raw-source VFS seed) and TextEdit (160 kB — react-markdown) load on first open. |
 | R2 | Self-host fonts | Pixelify Sans + VT323 come from the Google Fonts CDN (`index.html`); drop woff2 files into `public/fonts/` + `@font-face` for offline reliability and no FOUT on slow connections. |
 | R3 | Window resize edges | Only the corner size-box resizes; real Platinum windows resized from the corner only too, but Aqua/XP/98 themes should allow edge-drag to feel authentic. |
 | R4 | Polish pass per theme | Screenshot-audit all five themes for chrome regressions after each feature lands (the 2026-07-23 pass caught several); make this a repeatable checklist. |

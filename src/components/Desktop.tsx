@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useWindowStore } from '../store/windowStore';
 import { useDesktopStore, type IconPosition } from '../store/desktopStore';
@@ -246,7 +246,9 @@ export default function Desktop() {
           if (!AppComponent) return null;
           return (
             <Window key={win.id} state={win}>
-              <AppComponent />
+              <Suspense fallback={<div style={{ width: '100%', height: '100%', background: 'var(--plat-white)' }} />}>
+                <AppComponent />
+              </Suspense>
             </Window>
           );
         })}
