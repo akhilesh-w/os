@@ -12,6 +12,8 @@ import {
 import { PLAYLIST, ALBUM_LIST, type Track } from '../lib/music';
 import { fetchLyrics, activeLineIndex, type Lyrics } from '../lib/lyrics';
 import { playTick, playClick } from '../lib/sounds';
+import { useWindowId } from '../components/Window';
+import { useWindowStore } from '../store/windowStore';
 
 const ALBUMS = Array.from(new Set(PLAYLIST.map(t => t.album))).sort();
 const ARTISTS = Array.from(new Set(PLAYLIST.map(t => t.artist))).sort();
@@ -508,6 +510,72 @@ export default function Music() {
     pop();
   }, [stack.length, pop]);
 
+  // Click a visible menu row directly (mouse/trackpad convenience).
+  const onItemClick = useCallback(
+    (idx: number) => {
+      const items = currentItems;
+      if (!items[idx]) return;
+      setTopSel(idx, items);
+      playClick();
+      items[idx].onSelect();
+    },
+    [currentItems, setTopSel]
+  );
+
+  // Jump Cover Flow selection to a clicked side cover.
+  const onCoverJump = useCallback(
+    (idx: number) => {
+      playTick();
+      setTopSel(idx, currentItems);
+    },
+    [currentItems, setTopSel]
+  );
+
+  // Trackpad/mouse wheel anywhere over the LCD scrolls like the click wheel.
+  const lcdWheelAccum = useRef(0);
+  const onLcdWheel = useCallback(
+    (e: React.WheelEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      lcdWheelAccum.current += e.deltaY;
+      const step = 28;
+      while (lcdWheelAccum.current >= step) {
+        onScroll(1);
+        lcdWheelAccum.current -= step;
+      }
+      while (lcdWheelAccum.current <= -step) {
+        onScroll(-1);
+        lcdWheelAccum.current += step;
+      }
+    },
+    [onScroll]
+  );
+
+  // Keyboard control while the iPod window is focused: arrows navigate,
+  // Enter selects, Escape/Backspace = MENU, ←/→ = prev/next, Space toggles.
+  const windowId = useWindowId();
+  const isActiveWindow = useWindowStore(s => s.activeWindowId != null && s.activeWindowId === windowId);
+  useEffect(() => {
+    if (!isActiveWindow) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || t?.isContentEditable) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      switch (e.key) {
+        case 'ArrowUp': e.preventDefault(); onScroll(-1); break;
+        case 'ArrowDown': e.preventDefault(); onScroll(1); break;
+        case 'Enter': e.preventDefault(); playClick(); onCenter(); break;
+        case 'Escape':
+        case 'Backspace': e.preventDefault(); onMenu(); break;
+        case 'ArrowLeft': e.preventDefault(); playClick(); prevTrack(); break;
+        case 'ArrowRight': e.preventDefault(); playClick(); nextTrack(); break;
+        case ' ': e.preventDefault(); playClick(); togglePlay(); break;
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isActiveWindow, onScroll, onCenter, onMenu, prevTrack, nextTrack, togglePlay]);
+
   const lcdTitle = useMemo(() => {
     switch (top.id) {
       case 'main': return 'iPod';
@@ -570,6 +638,7 @@ export default function Music() {
       >
         <div
           className="chrome-inset"
+          onWheel={onLcdWheel}
           style={{
             width: LCD_W,
             height: LCD_H,
@@ -578,6 +647,7 @@ export default function Music() {
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
+            touchAction: 'none',
           }}
         >
           <LcdHeader
@@ -608,13 +678,24 @@ export default function Music() {
                 />
               )
             ) : top.id === 'coverflow' ? (
-              <CoverFlowView selected={top.selected} fg={lcdFg} bg={lcdBg} />
+              <CoverFlowView
+                selected={top.selected}
+                fg={lcdFg}
+                bg={lcdBg}
+                onJump={onCoverJump}
+                onOpen={onCenter}
+              />
             ) : top.id === 'about' ? (
               <AboutView variant={top.param} />
             ) : top.id === 'clock' ? (
               <ClockView now={now} fg={lcdFg} bg={lcdBg} />
             ) : (
-              <Menu items={currentItems} selected={top.selected} scrollTop={top.scrollTop} />
+              <Menu
+                items={currentItems}
+                selected={top.selected}
+                scrollTop={top.scrollTop}
+                onItemClick={onItemClick}
+              />
             )}
           </div>
         </div>
@@ -730,51 +811,84 @@ function Menu({
   items,
   selected,
   scrollTop,
+  onItemClick,
 }: {
   items: MenuItem[];
   selected: number;
   scrollTop: number;
+  onItemClick?: (idx: number) => void;
 }) {
   if (!items.length) {
     return <div style={{ padding: 8, fontSize: 11, opacity: 0.7 }}>(empty)</div>;
   }
   const visible = items.slice(scrollTop, scrollTop + VISIBLE_ITEMS);
+  const hasScrollbar = items.length > VISIBLE_ITEMS;
+  const thumbH = Math.max(12, (VISIBLE_ITEMS / items.length) * 100);
+  const thumbTop = (scrollTop / Math.max(1, items.length - VISIBLE_ITEMS)) * (100 - thumbH);
   return (
-    <div style={{ flex: 1, padding: '2px 0', display: 'flex', flexDirection: 'column' }}>
-      {visible.map((item, i) => {
-        const realIdx = i + scrollTop;
-        const sel = realIdx === selected;
-        return (
-          <div
-            key={realIdx}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              padding: '1px 6px',
-              background: sel ? '#1a2410' : 'transparent',
-              color: sel ? '#c7d3b7' : '#1a2410',
-              fontFamily: 'var(--font-chicago)',
-              fontSize: 12,
-              lineHeight: 1.4,
-            }}
-          >
-            <span style={{ width: 8, textAlign: 'center' }}>{item.marker ?? ' '}</span>
-            <span
+    <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+      <div style={{ flex: 1, minWidth: 0, padding: '2px 0', display: 'flex', flexDirection: 'column' }}>
+        {visible.map((item, i) => {
+          const realIdx = i + scrollTop;
+          const sel = realIdx === selected;
+          return (
+            <div
+              key={realIdx}
+              onClick={onItemClick ? () => onItemClick(realIdx) : undefined}
               style={{
-                flex: 1,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '1px 6px',
+                background: sel ? '#1a2410' : 'transparent',
+                color: sel ? '#c7d3b7' : '#1a2410',
+                fontFamily: 'var(--font-chicago)',
+                fontSize: 12,
+                lineHeight: 1.4,
+                cursor: onItemClick ? 'pointer' : undefined,
               }}
             >
-              {item.label}
-            </span>
-            {item.rightLabel && <span style={{ opacity: sel ? 1 : 0.7 }}>{item.rightLabel}</span>}
-          </div>
-        );
-      })}
-      <div style={{ flex: 1 }} />
+              <span style={{ width: 8, textAlign: 'center' }}>{item.marker ?? ' '}</span>
+              <span
+                style={{
+                  flex: 1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {item.label}
+              </span>
+              {item.rightLabel && <span style={{ opacity: sel ? 1 : 0.7 }}>{item.rightLabel}</span>}
+            </div>
+          );
+        })}
+        <div style={{ flex: 1 }} />
+      </div>
+      {/* Classic iPod scrollbar — appears whenever the list overflows, so
+          long lists are visibly longer than one screen. */}
+      {hasScrollbar && (
+        <div
+          style={{
+            width: 7,
+            margin: '2px 1px 2px 0',
+            border: '1px solid #1a2410',
+            position: 'relative',
+            flexShrink: 0,
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: `${thumbTop}%`,
+              height: `${thumbH}%`,
+              background: '#1a2410',
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -994,7 +1108,19 @@ function Bar({
  * album's track list. Covers get the same grayscale treatment as Now
  * Playing art so they read as part of the monochrome LCD.
  */
-function CoverFlowView({ selected, fg, bg }: { selected: number; fg: string; bg: string }) {
+function CoverFlowView({
+  selected,
+  fg,
+  bg,
+  onJump,
+  onOpen,
+}: {
+  selected: number;
+  fg: string;
+  bg: string;
+  onJump?: (idx: number) => void;
+  onOpen?: () => void;
+}) {
   const sel = Math.min(selected, ALBUM_LIST.length - 1);
   const album = ALBUM_LIST[sel];
   return (
@@ -1009,6 +1135,7 @@ function CoverFlowView({ selected, fg, bg }: { selected: number; fg: string; bg:
           return (
             <div
               key={a.name}
+              onClick={isCenter ? onOpen : onJump ? () => onJump(i) : undefined}
               style={{
                 position: 'absolute',
                 left: '50%',
@@ -1023,6 +1150,7 @@ function CoverFlowView({ selected, fg, bg }: { selected: number; fg: string; bg:
                 border: `1px solid ${fg}`,
                 background: fg,
                 overflow: 'hidden',
+                cursor: 'pointer',
               }}
             >
               {a.cover && (

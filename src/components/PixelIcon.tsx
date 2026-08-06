@@ -318,6 +318,27 @@ const ICONS: Record<string, ReactNode> = {
       <rect x="4" y="9" width="4" height="1" fill="#000" />
     </g>
   ),
+  video: (
+    <g fill="currentColor">
+      {/* TV set: antenna, screen, control strip */}
+      <rect x="4" y="1" width="1" height="3" fill="#000" />
+      <rect x="10" y="1" width="1" height="3" fill="#000" />
+      <rect x="5" y="2" width="1" height="1" fill="#000" />
+      <rect x="9" y="2" width="1" height="1" fill="#000" />
+      <rect x="6" y="3" width="3" height="1" fill="#000" />
+      {/* Cabinet */}
+      <rect x="1" y="4" width="14" height="10" fill="#000" />
+      <rect x="2" y="5" width="9" height="8" fill="#9fdc9f" />
+      {/* Play triangle on screen */}
+      <rect x="5" y="7" width="1" height="4" fill="#000" />
+      <rect x="6" y="8" width="1" height="2" fill="#000" />
+      <rect x="7" y="9" width="1" height="1" fill="#000" />
+      {/* Control panel */}
+      <rect x="12" y="5" width="2" height="2" fill="#dddddd" />
+      <rect x="12" y="8" width="2" height="2" fill="#dddddd" />
+      <rect x="12" y="11" width="2" height="1" fill="#dddddd" />
+    </g>
+  ),
 };
 
 export default function PixelIcon({ name, size = 32, style }: PixelIconProps) {

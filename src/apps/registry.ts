@@ -16,6 +16,7 @@ const Readme = lazy(() => import('./Readme'));
 const Calculator = lazy(() => import('./Calculator'));
 const InternetExplorer = lazy(() => import('./InternetExplorer'));
 const Stickies = lazy(() => import('./Stickies'));
+const Videos = lazy(() => import('./Videos'));
 
 export const APPS: AppDefinition[] = [
   { id: 'launcher', name: 'Launcher', icon: 'launcher', component: Launcher, defaultWidth: 420, defaultHeight: 320, hideFromLauncher: true },
@@ -25,6 +26,7 @@ export const APPS: AppDefinition[] = [
   { id: 'about', name: 'About This Macintosh', icon: 'about', component: About, defaultWidth: 460, defaultHeight: 320, hideFromDock: true },
   { id: 'readme', name: 'README', icon: 'document', component: Readme, defaultWidth: 380, defaultHeight: 440, hideFromDock: true },
   { id: 'music', name: 'iPod', icon: 'music', component: Music, defaultWidth: 300, defaultHeight: 460 },
+  { id: 'videos', name: 'Videos', icon: 'video', component: Videos, defaultWidth: 600, defaultHeight: 440 },
   { id: 'controls', name: 'Control Panels', icon: 'controls', component: ControlPanels, defaultWidth: 520, defaultHeight: 380 },
   { id: 'calculator', name: 'Calculator', icon: 'calculator', component: Calculator, defaultWidth: 220, defaultHeight: 280, hideFromDock: true },
   { id: 'stickies', name: 'Stickies', icon: 'sticky', component: Stickies, defaultWidth: 240, defaultHeight: 220, hideFromDock: true },
