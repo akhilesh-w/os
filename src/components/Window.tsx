@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { useWindowStore } from '../store/windowStore';
+import { useThemeStore } from '../store/themeStore';
+import { getTheme } from '../lib/themes';
 import { useIsMobile } from '../lib/useIsMobile';
 import type { WindowState } from '../types';
 
@@ -21,6 +23,28 @@ const MIN_VISIBLE = 40;
 const MIN_WIDTH = 220;
 const MIN_HEIGHT = 140;
 
+interface ResizeDirs {
+  left?: boolean;
+  right?: boolean;
+  top?: boolean;
+  bottom?: boolean;
+}
+
+const EDGE = 5; // invisible hit-strip thickness along window edges
+const CORNER = 12; // invisible hit-square at window corners
+
+/** Invisible resize hit areas per theme resizeMode (the 'corner' mode uses only the visible size box). */
+const EDGE_HANDLES: { key: string; dirs: ResizeDirs; cursor: string; style: React.CSSProperties; modes: Array<'edges' | 'bottom'> }[] = [
+  { key: 'n', dirs: { top: true }, cursor: 'ns-resize', style: { top: 0, left: CORNER, right: CORNER, height: 4 }, modes: ['edges'] },
+  { key: 's', dirs: { bottom: true }, cursor: 'ns-resize', style: { bottom: 0, left: CORNER, right: CORNER, height: EDGE }, modes: ['edges', 'bottom'] },
+  { key: 'w', dirs: { left: true }, cursor: 'ew-resize', style: { left: 0, top: CORNER, bottom: CORNER, width: EDGE }, modes: ['edges'] },
+  { key: 'e', dirs: { right: true }, cursor: 'ew-resize', style: { right: 0, top: CORNER, bottom: CORNER, width: EDGE }, modes: ['edges'] },
+  { key: 'nw', dirs: { top: true, left: true }, cursor: 'nwse-resize', style: { top: 0, left: 0, width: CORNER, height: CORNER }, modes: ['edges'] },
+  { key: 'ne', dirs: { top: true, right: true }, cursor: 'nesw-resize', style: { top: 0, right: 0, width: CORNER, height: CORNER }, modes: ['edges'] },
+  { key: 'sw', dirs: { bottom: true, left: true }, cursor: 'nesw-resize', style: { bottom: 0, left: 0, width: CORNER, height: CORNER }, modes: ['edges', 'bottom'] },
+  { key: 'se', dirs: { bottom: true, right: true }, cursor: 'nwse-resize', style: { bottom: 0, right: 0, width: CORNER, height: CORNER }, modes: ['edges', 'bottom'] },
+];
+
 export default function Window({ state: win, children }: WindowProps) {
   const closeWindow = useWindowStore(s => s.closeWindow);
   const minimizeWindow = useWindowStore(s => s.minimizeWindow);
@@ -29,6 +53,7 @@ export default function Window({ state: win, children }: WindowProps) {
   const updateWindowPosition = useWindowStore(s => s.updateWindowPosition);
   const updateWindowSize = useWindowStore(s => s.updateWindowSize);
   const isActive = useWindowStore(s => s.activeWindowId === win.id);
+  const resizeMode = useThemeStore(s => getTheme(s.currentId).resizeMode);
   const isMobile = useIsMobile();
   const fullscreen = win.isMaximized || isMobile;
 
@@ -74,8 +99,13 @@ export default function Window({ state: win, children }: WindowProps) {
     [win.id, win.x, win.y, win.width, win.isMaximized, isMobile, focusWindow, updateWindowPosition]
   );
 
-  const handleResizePointerDown = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
+  /**
+   * Shared resize logic for the size box and (on themes that allow it) edge
+   * handles. Dragging the left/top edges moves the window as it resizes so
+   * the opposite edge stays put.
+   */
+  const startResize = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>, dirs: ResizeDirs) => {
       if (win.isMaximized || isMobile) return;
       e.preventDefault();
       e.stopPropagation();
@@ -83,6 +113,8 @@ export default function Window({ state: win, children }: WindowProps) {
 
       const startMouseX = e.clientX;
       const startMouseY = e.clientY;
+      const startX = win.x;
+      const startY = win.y;
       const startW = win.width;
       const startH = win.height;
       const pointerId = e.pointerId;
@@ -92,10 +124,28 @@ export default function Window({ state: win, children }: WindowProps) {
       const onMove = (ev: PointerEvent) => {
         const vw = document.documentElement.clientWidth;
         const vh = document.documentElement.clientHeight;
-        const maxW = Math.max(MIN_WIDTH, vw - win.x);
-        const maxH = Math.max(MIN_HEIGHT, vh - win.y);
-        const w = Math.min(Math.max(MIN_WIDTH, startW + ev.clientX - startMouseX), maxW);
-        const h = Math.min(Math.max(MIN_HEIGHT, startH + ev.clientY - startMouseY), maxH);
+        const dx = ev.clientX - startMouseX;
+        const dy = ev.clientY - startMouseY;
+        let x = startX;
+        let y = startY;
+        let w = startW;
+        let h = startH;
+        if (dirs.right) {
+          w = Math.min(Math.max(MIN_WIDTH, startW + dx), Math.max(MIN_WIDTH, vw - startX));
+        }
+        if (dirs.bottom) {
+          h = Math.min(Math.max(MIN_HEIGHT, startH + dy), Math.max(MIN_HEIGHT, vh - startY));
+        }
+        if (dirs.left) {
+          // Cap growth at the current right edge's distance to x=0.
+          w = Math.min(Math.max(MIN_WIDTH, startW - dx), startX + startW);
+          x = startX + startW - w;
+        }
+        if (dirs.top) {
+          h = Math.min(Math.max(MIN_HEIGHT, startH - dy), startY + startH - MENU_BAR_HEIGHT);
+          y = startY + startH - h;
+        }
+        if (x !== startX || y !== startY) updateWindowPosition(win.id, x, y);
         updateWindowSize(win.id, w, h);
       };
       const onUp = () => {
@@ -108,7 +158,12 @@ export default function Window({ state: win, children }: WindowProps) {
       target.addEventListener('pointerup', onUp);
       target.addEventListener('pointercancel', onUp);
     },
-    [win.id, win.x, win.y, win.width, win.height, win.isMaximized, focusWindow, updateWindowSize]
+    [win.id, win.x, win.y, win.width, win.height, win.isMaximized, isMobile, focusWindow, updateWindowPosition, updateWindowSize]
+  );
+
+  const handleResizePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => startResize(e, { right: true, bottom: true }),
+    [startResize]
   );
 
   const computedStyle = fullscreen
@@ -237,6 +292,23 @@ export default function Window({ state: win, children }: WindowProps) {
           title="Resize"
         />
       )}
+
+      {/* Edge/corner resize hit areas — Windows 98/XP resize from every
+          edge; NeXTSTEP from its bottom bar. Invisible, sit above content. */}
+      {!fullscreen && resizeMode !== 'corner' &&
+        EDGE_HANDLES.filter(h => h.modes.includes(resizeMode)).map(h => (
+          <div
+            key={h.key}
+            onPointerDown={e => startResize(e, h.dirs)}
+            style={{
+              position: 'absolute',
+              zIndex: 4,
+              touchAction: 'none',
+              cursor: h.cursor,
+              ...h.style,
+            }}
+          />
+        ))}
     </motion.div>
   );
 }

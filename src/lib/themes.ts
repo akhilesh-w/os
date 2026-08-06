@@ -21,6 +21,14 @@ export interface Theme {
   defaultWallpaperId: string;
   /** Used by sounds.ts to pick a synthesis recipe per theme. */
   soundProfile: 'platinum' | 'aqua' | 'winxp' | 'win98' | 'nextstep';
+  /**
+   * How windows resize, matching each OS's real behavior:
+   * - 'corner'  — bottom-right size box only (System 7/Platinum, and Aqua
+   *               10.0–10.4, which predates Lion's edge-drag)
+   * - 'edges'   — every edge and corner (Windows 98 / XP)
+   * - 'bottom'  — bottom edge + bottom corners (NeXTSTEP's resize bar)
+   */
+  resizeMode: 'corner' | 'edges' | 'bottom';
 }
 
 export const THEMES: Theme[] = [
@@ -31,6 +39,7 @@ export const THEMES: Theme[] = [
     systemLabel: 'Macintosh System Platinum',
     defaultWallpaperId: 'stippled-gray',
     soundProfile: 'platinum',
+    resizeMode: 'corner',
   },
   {
     id: 'aqua',
@@ -39,6 +48,7 @@ export const THEMES: Theme[] = [
     systemLabel: 'Mac OS X · Aqua',
     defaultWallpaperId: 'azul',
     soundProfile: 'aqua',
+    resizeMode: 'corner',
   },
   {
     id: 'winxp',
@@ -47,6 +57,7 @@ export const THEMES: Theme[] = [
     systemLabel: 'Microsoft Windows XP · Luna',
     defaultWallpaperId: 'bliss',
     soundProfile: 'winxp',
+    resizeMode: 'edges',
   },
   {
     id: 'win98',
@@ -55,6 +66,7 @@ export const THEMES: Theme[] = [
     systemLabel: 'Microsoft Windows 98',
     defaultWallpaperId: 'win98-teal',
     soundProfile: 'win98',
+    resizeMode: 'edges',
   },
   {
     id: 'nextstep',
@@ -63,6 +75,7 @@ export const THEMES: Theme[] = [
     systemLabel: 'NeXTSTEP · NeXT Computer',
     defaultWallpaperId: 'nextstep-slate',
     soundProfile: 'nextstep',
+    resizeMode: 'bottom',
   },
 ];
 
