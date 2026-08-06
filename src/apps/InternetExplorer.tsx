@@ -35,7 +35,6 @@ const BOOKMARKS: Bookmark[] = [
   { name: 'ryOS', url: 'https://os.ryo.lu' },
   { name: 'Hacker News', url: 'https://news.ycombinator.com' },
   { name: 'Wikipedia', url: 'https://en.wikipedia.org' },
-  { name: 'YouTube', url: 'https://youtube.com' },
 ];
 
 const TIME_TRAVEL_YEARS = [
