@@ -194,9 +194,11 @@ export default function InternetExplorer() {
     }
   };
 
+  // Typing a fresh URL means "take me to the live site" — reset the year.
+  // Time travel only engages via the dropdown or the era bookmarks.
   const submitAddress = (e: React.FormEvent) => {
     e.preventDefault();
-    navigateTo(addressInput, current.year);
+    navigateTo(addressInput, null);
   };
 
   const setYear = (year: number | null) => {
@@ -354,7 +356,7 @@ export default function InternetExplorer() {
         {BOOKMARKS.map(b => (
           <button
             key={b.url}
-            onClick={() => navigateTo(b.url, current.year)}
+            onClick={() => navigateTo(b.url, null)}
             style={{
               background: 'transparent',
               border: 'none',
@@ -376,7 +378,7 @@ export default function InternetExplorer() {
       {/* Content */}
       <div style={{ flex: 1, position: 'relative', background: 'var(--plat-white)' }}>
         {current.url === HOME_URL ? (
-          <HomePage onPick={url => navigateTo(url, current.year)} />
+          <HomePage onPick={url => navigateTo(url, null)} />
         ) : (
           <>
             <iframe
